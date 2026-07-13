@@ -70,31 +70,58 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 .tab.on{color:var(--ink);border-bottom-color:var(--gold);}
 .tab .tc{font-weight:500;margin-left:6px;font-size:13px;color:var(--ink4);}
 
-/* LIST — full-width responsive grid */
-#list{padding:20px var(--pad) 90px;
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;align-content:start;}
-.card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:20px 22px;cursor:pointer;
-  transition:transform .14s ease,border-color .14s,box-shadow .14s;display:flex;flex-direction:column;}
-.card:hover{transform:translateY(-2px);border-color:var(--goldline);box-shadow:0 6px 22px rgba(26,25,23,.07);}
-.card.new{border-top:2.5px solid var(--gold);}
-.card.urgent{border-top:2.5px solid var(--red);}
-.crow1{display:flex;align-items:flex-start;gap:10px;}
-.cname{flex:1;font-size:18px;font-weight:700;line-height:1.4;color:var(--ink);letter-spacing:-0.5px;}
+/* RESULT BAR — count(left) + sort buttons(right), above list */
+.rbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  padding:18px var(--pad) 4px;}
+.rcount{font-size:14px;color:var(--ink3);letter-spacing:-0.2px;}
+.rcount b{color:var(--ink);font-weight:900;font-size:19px;margin-right:1px;}
+.rcount .sub{color:var(--ink4);margin-left:8px;font-size:13px;}
+.rsort{display:flex;gap:7px;}
+.sortbtn{padding:8px 15px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);color:var(--ink3);
+  font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:transform .1s,background .12s,color .12s,border-color .12s;}
+.sortbtn:hover{border-color:var(--ink3);}
+.sortbtn.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700;}
+.sortbtn:active{transform:scale(.93);}
+
+/* LIST — full-width single-column rows */
+#list{padding:14px var(--pad) 90px;display:flex;flex-direction:column;gap:11px;}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px 22px;cursor:pointer;
+  display:flex;align-items:center;gap:24px;
+  transition:transform .16s cubic-bezier(.22,1,.36,1),border-color .16s,box-shadow .16s;
+  animation:cardIn .34s cubic-bezier(.22,1,.36,1) backwards;}
+.card:hover{transform:translateY(-2px);border-color:var(--goldline);box-shadow:0 8px 26px rgba(26,25,23,.08);}
+.card:active{transform:scale(.995);}
+.card.new{border-left:3px solid var(--gold);}
+.card.urgent{border-left:3px solid var(--red);}
+@keyframes cardIn{from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:translateY(0);}}
+.c-main{flex:1;min-width:0;}
+.cname{font-size:18px;font-weight:700;line-height:1.35;color:var(--ink);letter-spacing:-0.5px;
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.csub{margin-top:7px;font-size:14px;color:var(--ink3);}
+.csub b{color:var(--ink2);font-weight:600;}
 .cbdg{flex-shrink:0;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;background:var(--soft);color:var(--ink3);}
 .cbdg.new{background:var(--goldbg);color:var(--gold2);}
 .cbdg.urgent{background:var(--redbg);color:var(--red);}
 .cbdg.closed{background:var(--soft);color:var(--ink4);}
-.cbdg.st{margin-left:2px;}
-.crow2{display:flex;gap:16px;margin-top:12px;font-size:14px;color:var(--ink3);flex-wrap:wrap;}
-.crow2 b{color:var(--ink2);font-weight:700;}
-.cfac{margin-top:14px;display:flex;gap:7px;flex-wrap:wrap;}
+.cfac{margin-top:11px;display:flex;gap:7px;flex-wrap:wrap;}
 .fac{font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:20px;background:var(--soft);color:var(--ink2);}
-.cmemo{margin-top:13px;font-size:13.5px;color:var(--gold2);background:var(--goldbg);padding:9px 13px;border-radius:9px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.more{grid-column:1/-1;background:var(--soft);border:1px solid var(--line);border-radius:11px;color:var(--ink2);
-  font-size:14.5px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;transition:background .12s;}
+.cmemo{margin-top:11px;font-size:13.5px;color:var(--gold2);background:var(--goldbg);padding:9px 13px;border-radius:9px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px;}
+.c-stats{display:flex;align-items:center;gap:26px;flex-shrink:0;}
+.c-stat{text-align:center;min-width:56px;}
+.c-stat .v{font-size:16px;font-weight:900;color:var(--ink);white-space:nowrap;}
+.c-stat .k{font-size:11px;color:var(--ink3);margin-top:3px;}
+.c-tag{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:74px;}
+.more{background:var(--soft);border:1px solid var(--line);border-radius:11px;color:var(--ink2);
+  font-size:14.5px;font-weight:700;padding:16px;cursor:pointer;font-family:inherit;transition:transform .1s,background .12s;}
 .more:hover{background:var(--hover);}
-.empty{grid-column:1/-1;text-align:center;color:var(--ink4);font-size:16px;padding:90px 0;}
+.more:active{transform:scale(.98);}
+.empty{text-align:center;color:var(--ink4);font-size:16px;padding:90px 0;}
+@media(max-width:640px){
+  .card{flex-direction:column;align-items:stretch;gap:14px;}
+  .c-stats{justify-content:flex-start;gap:32px;}
+  .c-tag{flex-direction:row;align-items:center;min-width:0;}
+}
 
 /* MODAL */
 #ovl{position:fixed;inset:0;background:rgba(26,25,23,.45);z-index:100;display:none;backdrop-filter:blur(2px);}
@@ -131,6 +158,13 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 .memo-in:focus{border-color:var(--gold);}
 .memo-hint{font-size:12px;color:var(--ink4);margin-top:7px;text-align:right;}
 
+/* 클릭/누름 마이크로 인터랙션 */
+.mbtn,.tab,.stb,.abtn{transition:transform .1s ease,background .12s,color .12s,border-color .12s;}
+.fchip:active,.tab:active,.mbtn:active,.sortbtn:active{transform:scale(.93);}
+.stb:active{transform:scale(.9);}
+.abtn:active{transform:scale(.97);}
+.cbdg,.fac{transition:transform .1s ease;}
+
 @media(min-width:760px){
   #modal{top:50%;bottom:auto;left:50%;right:auto;transform:translate(-50%,-46%);
     width:min(640px,92vw);border-radius:20px;max-height:88vh;box-shadow:0 24px 70px rgba(0,0,0,.28);}
@@ -148,7 +182,6 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 <div id="app">
   <div class="hdr">
     <div class="hdr-ttl"><small>THE LINE SPORTS</small>영업 관리</div>
-    <div class="hdr-cnt" id="hdrCnt"></div>
   </div>
   <div class="mswitch" id="mswitch">
     <button class="mbtn" data-m="apt">영업타겟<span class="mc" id="mcApt"></span></button>
@@ -156,10 +189,13 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   </div>
   <div class="sbar">
     <input class="sinput" id="q" placeholder="검색" autocomplete="off">
-    <select class="ssel" id="sort"></select>
   </div>
   <div class="fchips" id="fchips"></div>
   <div class="tabs" id="tabs"></div>
+  <div class="rbar">
+    <div class="rcount" id="rcount"></div>
+    <div class="rsort" id="rsort"></div>
+  </div>
   <div id="list"></div>
 </div>
 
@@ -302,9 +338,9 @@ const EXCLUSIVE = {
 };
 
 function renderSort(){
-  const sel = document.getElementById("sort");
-  sel.innerHTML = SORT_OPTS[state.mode].map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
-  sel.value = state.sort;
+  const box = document.getElementById("rsort");
+  box.innerHTML = SORT_OPTS[state.mode].map(([v,l])=>
+    `<button class="sortbtn${state.sort===v?" on":""}" data-s="${v}">${l}</button>`).join("");
 }
 function renderChips(){
   const box = document.getElementById("fchips");
@@ -324,7 +360,7 @@ function render(){
 function renderApt(){
   const rows = filteredApt();
   const newCnt = DATA.filter(r=>r.yrs<1).length;
-  document.getElementById("hdrCnt").innerHTML = `<b>${rows.length.toLocaleString()}</b> 표시<br>신축 ${newCnt} · 총 ${DATA.length.toLocaleString()}`;
+  document.getElementById("rcount").innerHTML = `<b>${rows.length.toLocaleString()}</b>개 표시<span class="sub">신축 ${newCnt} · 총 ${DATA.length.toLocaleString()}</span>`;
   document.getElementById("q").placeholder = "단지명 · 지역 · 주소 검색";
   renderSort(); renderChips();
 
@@ -337,20 +373,24 @@ function renderApt(){
   const list = document.getElementById("list");
   const slice = rows.slice(0, state.shown);
   if(!slice.length){ list.innerHTML = `<div class="empty">조건에 맞는 단지가 없습니다</div>`; return; }
-  list.innerHTML = slice.map(r=>{
+  list.innerHTML = slice.map((r,i)=>{
     const rec = crmApt[r.c]||{};
     const st = aptStMap[rec.st||"none"];
     const isNew = r.yrs<1;
-    const facs = (r.s?r.s.split(", "):[]).slice(0,5).map(f=>`<span class="fac">${f}</span>`).join("");
-    return `<div class="card${isNew?" new":""}" data-c="${r.c}">
-      <div class="crow1">
-        <div class="cname">${r.n}</div>
-        ${isNew?`<span class="cbdg new">신축 ${fmtYrs(r.yrs)}</span>`:`<span class="cbdg">${fmtYrs(r.yrs)}</span>`}
-        ${rec.st&&rec.st!=="none"?`<span class="cbdg st" style="background:${st.c}1e;color:${st.c}">${st.n}</span>`:""}
+    const facs = (r.s?r.s.split(", "):[]).slice(0,4).map(f=>`<span class="fac">${f}</span>`).join("");
+    const stBdg = rec.st&&rec.st!=="none"?`<span class="cbdg st" style="background:${st.c}1e;color:${st.c}">${st.n}</span>`:"";
+    return `<div class="card${isNew?" new":""}" data-c="${r.c}" style="animation-delay:${Math.min(i,14)*0.03}s">
+      <div class="c-main">
+        <div class="cname">${r.n}${stBdg}</div>
+        <div class="csub">${r.cat} · ${r.g}${r.o?" · "+(r.t||"주상복합"):""}</div>
+        ${facs?`<div class="cfac">${facs}</div>`:""}
+        ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
       </div>
-      <div class="crow2"><span>${r.cat} · ${r.g}${r.o?" · "+(r.t||"주상복합"):""}</span><span><b>${r.h.toLocaleString()}세대</b></span><span>준공 <b>${r.u}</b></span></div>
-      ${facs?`<div class="cfac">${facs}</div>`:""}
-      ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
+      <div class="c-stats">
+        <div class="c-stat"><div class="v">${r.h.toLocaleString()}</div><div class="k">세대</div></div>
+        <div class="c-stat"><div class="v">${r.u.slice(0,7)}</div><div class="k">준공</div></div>
+      </div>
+      <div class="c-tag">${isNew?`<span class="cbdg new">신축 ${fmtYrs(r.yrs)}</span>`:`<span class="cbdg">${fmtYrs(r.yrs)}</span>`}</div>
     </div>`;
   }).join("") + (rows.length>state.shown?`<button class="more" id="moreBtn">더보기 (${(rows.length-state.shown).toLocaleString()}개 남음)</button>`:"");
 }
@@ -358,7 +398,7 @@ function renderApt(){
 function renderBid(){
   const rows = filteredBid();
   const urgentCnt = BIDS.filter(r=>r.dday!==null && r.dday>=0 && r.dday<=7).length;
-  document.getElementById("hdrCnt").innerHTML = `<b>${rows.length.toLocaleString()}</b> 표시<br>마감임박 ${urgentCnt} · 총 ${BIDS.length.toLocaleString()}`;
+  document.getElementById("rcount").innerHTML = `<b>${rows.length.toLocaleString()}</b>개 표시<span class="sub">마감임박 ${urgentCnt} · 총 ${BIDS.length.toLocaleString()}</span>`;
   document.getElementById("q").placeholder = "공고명 · 발주기관 검색";
   renderSort(); renderChips();
 
@@ -371,7 +411,7 @@ function renderBid(){
   const list = document.getElementById("list");
   const slice = rows.slice(0, state.shown);
   if(!slice.length){ list.innerHTML = `<div class="empty">조건에 맞는 입찰공고가 없습니다</div>`; return; }
-  list.innerHTML = slice.map(r=>{
+  list.innerHTML = slice.map((r,i)=>{
     const rec = crmBid[r.no]||{};
     const st = bidStMap[rec.st||"none"];
     const urgent = r.dday!==null && r.dday>=0 && r.dday<=7;
@@ -380,16 +420,20 @@ function renderBid(){
     if(closed) ddBdg = `<span class="cbdg closed">마감</span>`;
     else if(r.dday===null) ddBdg = `<span class="cbdg">-</span>`;
     else ddBdg = `<span class="cbdg${urgent?" urgent":""}">D${r.dday===0?"-Day":"-"+r.dday}</span>`;
-    const kindStyle = r.kind==="운영" ? "background:var(--goldbg);color:var(--gold2);border-color:transparent" : "";
-    return `<div class="card${urgent?" urgent":""}" data-c="${r.no}">
-      <div class="crow1">
-        <div class="cname">${r.name}</div>
-        ${ddBdg}
-        ${rec.st&&rec.st!=="none"?`<span class="cbdg st" style="background:${st.c}1e;color:${st.c}">${st.n}</span>`:""}
+    const stBdg = rec.st&&rec.st!=="none"?`<span class="cbdg st" style="background:${st.c}1e;color:${st.c}">${st.n}</span>`:"";
+    const kindStyle = r.kind==="운영" ? "background:var(--goldbg);color:var(--gold2)" : "";
+    return `<div class="card${urgent?" urgent":""}" data-c="${r.no}" style="animation-delay:${Math.min(i,14)*0.03}s">
+      <div class="c-main">
+        <div class="cname">${r.name}${stBdg}</div>
+        <div class="csub">${r.org}</div>
+        <div class="cfac"><span class="fac" style="${kindStyle}">${r.kind}</span><span class="fac">${r.kw}</span>${r.variants>1?`<span class="fac">관련공고 ${r.variants}건</span>`:""}</div>
+        ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
       </div>
-      <div class="crow2"><span>${r.org}</span><span><b>${fmtWon(r.budget)}</b></span><span>공고 <b>${r.noticeDt}</b></span></div>
-      <div class="cfac"><span class="fac" style="${kindStyle}">${r.kind}</span><span class="fac">${r.kw}</span>${r.variants>1?`<span class="fac">관련공고 ${r.variants}건</span>`:""}</div>
-      ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
+      <div class="c-stats">
+        <div class="c-stat"><div class="v">${fmtWon(r.budget)}</div><div class="k">추정가</div></div>
+        <div class="c-stat"><div class="v">${(r.noticeDt||"").slice(5)}</div><div class="k">공고</div></div>
+      </div>
+      <div class="c-tag">${ddBdg}</div>
     </div>`;
   }).join("") + (rows.length>state.shown?`<button class="more" id="moreBtn">더보기 (${(rows.length-state.shown).toLocaleString()}개 남음)</button>`:"");
 }
@@ -402,7 +446,10 @@ document.getElementById("mswitch").addEventListener("click", e=>{
   render();
 });
 document.getElementById("q").addEventListener("input", e=>{state.q=e.target.value; state.shown=60; render();});
-document.getElementById("sort").addEventListener("change", e=>{state.sort=e.target.value; state.shown=60; render();});
+document.getElementById("rsort").addEventListener("click", e=>{
+  const b = e.target.closest(".sortbtn"); if(!b) return;
+  state.sort = b.dataset.s; state.shown=60; render();
+});
 document.getElementById("fchips").addEventListener("click", e=>{
   const ch = e.target.closest(".fchip"); if(!ch) return;
   const f = ch.dataset.f;
