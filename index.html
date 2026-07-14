@@ -218,6 +218,7 @@ const APT_STATUSES = [
   {k:"prop", n:"제안서", c:"#a9863f"},
   {k:"won", n:"계약", c:"#3f8f5e"},
   {k:"hold", n:"보류", c:"#b1493c"},
+  {k:"operating", n:"타사 운영중", c:"#6f4a4a"},
 ];
 const aptStMap = Object.fromEntries(APT_STATUSES.map(s=>[s.k,s]));
 
@@ -229,6 +230,7 @@ const BID_STATUSES = [
   {k:"submitted", n:"제출완료", c:"#a9863f"},
   {k:"won", n:"낙찰", c:"#3f8f5e"},
   {k:"lost", n:"유찰/탈락", c:"#b1493c"},
+  {k:"operating", n:"타사 낙찰(운영중)", c:"#6f4a4a"},
 ];
 const bidStMap = Object.fromEntries(BID_STATUSES.map(s=>[s.k,s]));
 
@@ -286,6 +288,7 @@ function filteredApt(){
     if(state.filters.has("offi") && !r.o) return false;
     if(state.filters.has("apt") && r.o) return false;
     if(state.filters.has("sport") && !r.s) return false;
+    if(state.filters.has("hideOp") && st==="operating") return false;
     if(state.filters.has("worked") && st==="none") return false;
     if(state.filters.has("untouched") && st!=="none") return false;
     return true;
@@ -304,6 +307,7 @@ function filteredBid(){
     if(state.filters.has("plan") && r.kind!=="건립·설계") return false;
     if(state.filters.has("urgent7") && !(r.dday!==null && r.dday>=0 && r.dday<=7)) return false;
     if(state.filters.has("open") && !(r.dday===null || r.dday>=0)) return false;
+    if(state.filters.has("hideOp") && st==="operating") return false;
     if(state.filters.has("untouched") && st!=="none") return false;
     if(state.filters.has("worked") && st==="none") return false;
     return true;
@@ -319,6 +323,7 @@ const FCHIPS = {
     {f:"offi", label:"오피스텔·주상복합"},
     {f:"apt", label:"아파트만"},
     {f:"sport", label:"커뮤니티 보유"},
+    {f:"hideOp", label:"운영중 제외"},
     {f:"worked", label:"영업 진행중"},
     {f:"untouched", label:"미접촉만"},
   ],
@@ -328,6 +333,7 @@ const FCHIPS = {
     {f:"plan", label:"건립·설계"},
     {f:"urgent7", label:"마감 임박 7일", cls:"red"},
     {f:"open", label:"진행중만"},
+    {f:"hideOp", label:"낙찰건 제외"},
     {f:"worked", label:"체크한 항목"},
     {f:"untouched", label:"미확인만"},
   ],
