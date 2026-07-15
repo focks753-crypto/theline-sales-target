@@ -18,7 +18,7 @@
   --ink:#1a1917;--ink2:#57544e;--ink3:#8f8c84;--ink4:#b7b3aa;
   --gold:#a8843c;--gold2:#8a6d30;--goldbg:#f6f0e2;--goldline:#e4d4ab;
   --red:#b1493c;--redbg:#f7e8e5;
-  --green:#3f8f5e;--blue:#3f6ea9;--orange:#b5793a;
+  --green:#3f8f5e;--blue:#3f6ea9;--bluebg:#e7edf5;--orange:#b5793a;
   --pad:clamp(20px,4vw,60px);
   --fs:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
@@ -160,6 +160,10 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 .memo-in{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:12px;color:var(--ink);
   font-size:15px;font-family:inherit;padding:14px 15px;outline:none;resize:none;min-height:88px;line-height:1.6;}
 .memo-in:focus{border-color:var(--gold);}
+.owner-in{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:12px;color:var(--ink);
+  font-size:15px;font-family:inherit;padding:13px 15px;outline:none;}
+.owner-in:focus{border-color:var(--gold);}
+.c-owner{flex-shrink:0;font-size:13px;font-weight:700;color:var(--gold2);background:var(--goldbg);padding:5px 11px;border-radius:20px;white-space:nowrap;}
 .memo-hint{font-size:12px;color:var(--ink4);margin-top:7px;text-align:right;}
 
 /* 클릭/누름 마이크로 인터랙션 */
@@ -190,6 +194,7 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   <div class="mswitch" id="mswitch">
     <button class="mbtn" data-m="apt">영업타겟<span class="mc" id="mcApt"></span></button>
     <button class="mbtn" data-m="bid">입찰공고<span class="mc" id="mcBid"></span></button>
+    <button class="mbtn" data-m="prog">영업 진행<span class="mc" id="mcProg"></span></button>
   </div>
   <div class="sbar">
     <input class="sinput" id="q" placeholder="검색" autocomplete="off">
@@ -279,7 +284,20 @@ const SORTERS = {
 const SORT_OPTS = {
   apt: [["new","최신 준공순"],["big","세대수순"],["name","이름순"]],
   bid: [["dday","마감임박순"],["newest","최신공고순"],["budget","예산큰순"]],
+  prog: [["recent","최근 업데이트순"],["owner","담당자순"],["status","상태순"]],
 };
+const ALL_STATUSES = [...APT_STATUSES, ...BID_STATUSES];
+const anyStMap = Object.fromEntries(ALL_STATUSES.map(s=>[s.k,s]));
+const ST_ORDER = ["won","prop","submitted","prep","visit","call","interest","hold","lost","operating","none"];
+
+function progressItems(){
+  const out=[];
+  DATA.forEach(r=>{const rec=crmApt[r.c]; if(rec && ((rec.st&&rec.st!=="none")||rec.owner||rec.memo))
+    out.push({src:"apt",id:r.c,name:r.n,sub:`${r.cat} · ${r.g}`,rec,st:anyStMap[rec.st||"none"]});});
+  BIDS.forEach(r=>{const rec=crmBid[r.no]; if(rec && ((rec.st&&rec.st!=="none")||rec.owner||rec.memo))
+    out.push({src:"bid",id:r.no,name:r.name,sub:r.org,rec,st:anyStMap[rec.st||"none"]});});
+  return out;
+}
 
 function filteredApt(){
   const q = state.q.trim().toLowerCase();
@@ -363,8 +381,11 @@ function render(){
   document.querySelectorAll(".mbtn").forEach(b=>b.classList.toggle("on", b.dataset.m===state.mode));
   document.getElementById("mcApt").textContent = DATA.length.toLocaleString();
   document.getElementById("mcBid").textContent = BIDS.length.toLocaleString();
+  document.getElementById("mcProg").textContent = progressItems().length.toLocaleString();
 
-  if(state.mode==="apt") renderApt(); else renderBid();
+  if(state.mode==="apt") renderApt();
+  else if(state.mode==="bid") renderBid();
+  else renderProgress();
 }
 
 function renderApt(){
@@ -452,9 +473,71 @@ function renderBid(){
   }).join("") + (rows.length>state.shown?`<button class="more" id="moreBtn">더보기 (${(rows.length-state.shown).toLocaleString()}개 남음)</button>`:"");
 }
 
+function renderProgress(){
+  let items = progressItems();
+  const wonCnt = items.filter(x=>["won"].includes(x.rec.st)).length;
+  document.getElementById("q").placeholder = "단지 · 공고 · 담당자 검색";
+  document.getElementById("rcount").innerHTML = `<b>${items.length.toLocaleString()}</b>건 진행<span class="sub">계약/낙찰 ${wonCnt} · 담당배정 ${items.filter(x=>x.rec.owner).length}</span>`;
+  // sort buttons
+  document.getElementById("rsort").innerHTML = SORT_OPTS.prog.map(([v,l])=>
+    `<button class="sortbtn${state.sort===v?" on":""}" data-s="${v}">${l}</button>`).join("");
+
+  // 담당자 필터 칩 (동적)
+  const owners = [...new Set(items.map(x=>x.rec.owner).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ko"));
+  const chips = document.getElementById("fchips");
+  chips.innerHTML = owners.map(o=>`<div class="fchip${state.filters.has("own:"+o)?" on":""}" data-f="own:${o}">${o}</div>`).join("")
+    + `<div class="fchip${state.filters.has("own:__none")?" on":""}" data-f="own:__none">미배정</div>`;
+
+  // 소스 탭
+  const PROG_CATS=["전체","아파트","입찰공고"];
+  document.getElementById("tabs").innerHTML = PROG_CATS.map(c=>{
+    const n = c==="전체"?items.length : items.filter(x=>x.src===(c==="아파트"?"apt":"bid")).length;
+    return `<button class="tab${state.cat===c?" on":""}" data-c="${c}">${c}<span class="tc">${n}</span></button>`;
+  }).join("");
+
+  // 필터 적용
+  const q = state.q.trim().toLowerCase();
+  const ownerSel = [...state.filters].filter(f=>f.startsWith("own:")).map(f=>f.slice(4));
+  let rows = items.filter(x=>{
+    if(state.cat==="아파트" && x.src!=="apt") return false;
+    if(state.cat==="입찰공고" && x.src!=="bid") return false;
+    if(ownerSel.length){
+      const own = x.rec.owner || "__none";
+      if(!ownerSel.includes(own)) return false;
+    }
+    if(q && !((x.name+" "+x.sub+" "+(x.rec.owner||"")+" "+(x.rec.memo||"")).toLowerCase().includes(q))) return false;
+    return true;
+  });
+  // 정렬
+  if(state.sort==="owner") rows.sort((a,b)=>(a.rec.owner||"힣").localeCompare(b.rec.owner||"힣","ko") || (b.rec.d||"").localeCompare(a.rec.d||""));
+  else if(state.sort==="status") rows.sort((a,b)=>ST_ORDER.indexOf(a.rec.st)-ST_ORDER.indexOf(b.rec.st));
+  else rows.sort((a,b)=>(b.rec.d||"").localeCompare(a.rec.d||""));
+
+  const list = document.getElementById("list");
+  const slice = rows.slice(0, state.shown);
+  if(!slice.length){ list.innerHTML = `<div class="empty">진행 중인 항목이 없습니다<br><span style="font-size:13px">단지·공고 상세창에서 상태나 담당자를 지정하면 여기 모입니다</span></div>`; return; }
+  list.innerHTML = slice.map((x,i)=>{
+    const st=x.st, rec=x.rec;
+    const srcBdg = x.src==="apt"
+      ? `<span class="cbdg" style="background:var(--bluebg);color:var(--blue)">아파트</span>`
+      : `<span class="cbdg" style="background:var(--goldbg);color:var(--gold2)">입찰</span>`;
+    return `<div class="card" data-src="${x.src}" data-c="${x.id}" style="animation-delay:${Math.min(i,14)*0.03}s">
+      <div class="c-main">
+        <div class="cname">${x.name}${srcBdg}</div>
+        <div class="csub">${x.sub}${rec.owner?` · 담당 <b>${rec.owner}</b>`:""}</div>
+        ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
+      </div>
+      ${rec.owner?`<div class="c-owner">${rec.owner}</div>`:""}
+      <div class="c-stats"><div class="c-stat"><div class="v">${rec.d||"-"}</div><div class="k">업데이트</div></div></div>
+      <div class="c-tag"><span class="cbdg st" style="background:${st.c}22;color:${st.c}">${st.n}</span></div>
+    </div>`;
+  }).join("") + (rows.length>state.shown?`<button class="more" id="moreBtn">더보기 (${(rows.length-state.shown).toLocaleString()}개 남음)</button>`:"");
+}
+
 document.getElementById("mswitch").addEventListener("click", e=>{
   const b = e.target.closest(".mbtn"); if(!b) return;
-  state.mode = b.dataset.m; state.cat = "전체"; state.q=""; state.sort = state.mode==="apt"?"new":"dday";
+  state.mode = b.dataset.m; state.cat = "전체"; state.q="";
+  state.sort = state.mode==="apt"?"new":state.mode==="bid"?"dday":"recent";
   state.filters = new Set(); state.shown=60;
   document.getElementById("q").value = "";
   render();
@@ -484,7 +567,9 @@ document.getElementById("tabs").addEventListener("click", e=>{
 document.getElementById("list").addEventListener("click", e=>{
   if(e.target.id==="moreBtn"){ state.shown+=100; render(); return; }
   const card = e.target.closest(".card"); if(!card) return;
-  if(state.mode==="apt") openAptModal(card.dataset.c); else openBidModal(card.dataset.c);
+  if(state.mode==="prog") (card.dataset.src==="apt"?openAptModal:openBidModal)(card.dataset.c);
+  else if(state.mode==="apt") openAptModal(card.dataset.c);
+  else openBidModal(card.dataset.c);
 });
 
 const ovl = document.getElementById("ovl"), modal = document.getElementById("modal");
@@ -516,8 +601,10 @@ function openAptModal(code){
     </div>
     <div class="m-sec">영업 상태</div>
     <div class="stbtns">${APT_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
+    <div class="m-sec">담당자</div>
+    <input class="owner-in" id="ownerIn" placeholder="담당 영업자 이름" value="${(rec.owner||'').replace(/"/g,'&quot;')}">
     <div class="m-sec">메모</div>
-    <textarea class="memo-in" id="memoIn" placeholder="담당자, 통화 내용, 방문 일정 등">${rec.memo||""}</textarea>
+    <textarea class="memo-in" id="memoIn" placeholder="통화 내용, 방문 일정 등">${rec.memo||""}</textarea>
     <div class="memo-hint" id="memoHint">자동 저장됩니다</div>
     <div class="m-sec">커뮤니티 시설${allFacs.length?` (${allFacs.length})`:""}</div>
     <div class="m-fac">${allFacs.length?allFacs.map(f=>`<span class="fac${[...sportSet].some(s=>f.includes(s))?"":" dim"}">${f}</span>`).join(""):'<span class="fac">등록된 시설 정보 없음</span>'}</div>
@@ -534,6 +621,17 @@ function openAptModal(code){
       const rec2 = crmApt[curCode]||(crmApt[curCode]={});
       rec2.memo = e.target.value.trim();
       if(!rec2.memo) delete rec2.memo;
+      saveCrmApt(); render();
+      document.getElementById("memoHint").textContent = "저장됨";
+    }, 500);
+  });
+  document.getElementById("ownerIn").addEventListener("input", e=>{
+    clearTimeout(memoTimer);
+    memoTimer = setTimeout(()=>{
+      const rec2 = crmApt[curCode]||(crmApt[curCode]={});
+      rec2.owner = e.target.value.trim();
+      if(!rec2.owner) delete rec2.owner;
+      if(rec2.st===undefined) rec2.st="none";
       saveCrmApt(); render();
       document.getElementById("memoHint").textContent = "저장됨";
     }, 500);
@@ -564,8 +662,10 @@ function openBidModal(no){
     </div>
     <div class="m-sec">진행 상태</div>
     <div class="stbtns">${BID_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
+    <div class="m-sec">담당자</div>
+    <input class="owner-in" id="ownerIn" placeholder="담당 영업자 이름" value="${(rec.owner||'').replace(/"/g,'&quot;')}">
     <div class="m-sec">메모</div>
-    <textarea class="memo-in" id="memoIn" placeholder="담당자, 제안 방향, 경쟁사 정보 등">${rec.memo||""}</textarea>
+    <textarea class="memo-in" id="memoIn" placeholder="제안 방향, 경쟁사 정보 등">${rec.memo||""}</textarea>
     <div class="memo-hint" id="memoHint">자동 저장됩니다</div>
     <div class="m-sec">공고 정보</div>
     <div class="m-fac">
@@ -588,6 +688,17 @@ function openBidModal(no){
       const rec2 = crmBid[curCode]||(crmBid[curCode]={});
       rec2.memo = e.target.value.trim();
       if(!rec2.memo) delete rec2.memo;
+      saveCrmBid(); render();
+      document.getElementById("memoHint").textContent = "저장됨";
+    }, 500);
+  });
+  document.getElementById("ownerIn").addEventListener("input", e=>{
+    clearTimeout(memoTimer);
+    memoTimer = setTimeout(()=>{
+      const rec2 = crmBid[curCode]||(crmBid[curCode]={});
+      rec2.owner = e.target.value.trim();
+      if(!rec2.owner) delete rec2.owner;
+      if(rec2.st===undefined) rec2.st="none";
       saveCrmBid(); render();
       document.getElementById("memoHint").textContent = "저장됨";
     }, 500);
