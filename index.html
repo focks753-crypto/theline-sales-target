@@ -293,9 +293,9 @@ const ST_ORDER = ["won","prop","submitted","prep","visit","call","interest","hol
 function progressItems(){
   const out=[];
   DATA.forEach(r=>{const rec=crmApt[r.c]; if(rec && ((rec.st&&rec.st!=="none")||rec.owner||rec.memo))
-    out.push({src:"apt",id:r.c,name:r.n,sub:`${r.cat} · ${r.g}`,rec,st:anyStMap[rec.st||"none"]});});
+    out.push({src:"apt",id:r.c,name:r.n,sub:`${r.cat} · ${r.g}`,rec,st:anyStMap[rec.st||"none"],data:r});});
   BIDS.forEach(r=>{const rec=crmBid[r.no]; if(rec && ((rec.st&&rec.st!=="none")||rec.owner||rec.memo))
-    out.push({src:"bid",id:r.no,name:r.name,sub:r.org,rec,st:anyStMap[rec.st||"none"]});});
+    out.push({src:"bid",id:r.no,name:r.name,sub:r.org,rec,st:anyStMap[rec.st||"none"],data:r});});
   return out;
 }
 
@@ -521,14 +521,21 @@ function renderProgress(){
     const srcBdg = x.src==="apt"
       ? `<span class="cbdg" style="background:var(--bluebg);color:var(--blue)">아파트</span>`
       : `<span class="cbdg" style="background:var(--goldbg);color:var(--gold2)">입찰</span>`;
-    return `<div class="card" data-src="${x.src}" data-c="${x.id}" style="animation-delay:${Math.min(i,14)*0.03}s">
+    const isNew = x.src==="apt" && x.data.yrs<1;
+    const infoStat = x.src==="apt"
+      ? `<div class="c-stat"><div class="v">${x.data.u.slice(0,7)}</div><div class="k">준공 ${fmtYrs(x.data.yrs)}</div></div>`
+      : `<div class="c-stat"><div class="v">${fmtWon(x.data.budget)}</div><div class="k">추정가</div></div>`;
+    return `<div class="card${isNew?" new":""}" data-src="${x.src}" data-c="${x.id}" style="animation-delay:${Math.min(i,14)*0.03}s">
       <div class="c-main">
-        <div class="cname">${x.name}${srcBdg}</div>
+        <div class="cname">${x.name}${srcBdg}${isNew?`<span class="cbdg new">신축 ${fmtYrs(x.data.yrs)}</span>`:""}</div>
         <div class="csub">${x.sub}${rec.owner?` · 담당 <b>${rec.owner}</b>`:""}</div>
         ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
       </div>
       ${rec.owner?`<div class="c-owner">${rec.owner}</div>`:""}
-      <div class="c-stats"><div class="c-stat"><div class="v">${rec.d||"-"}</div><div class="k">업데이트</div></div></div>
+      <div class="c-stats">
+        ${infoStat}
+        <div class="c-stat"><div class="v">${rec.d||"-"}</div><div class="k">업데이트</div></div>
+      </div>
       <div class="c-tag"><span class="cbdg st" style="background:${st.c}22;color:${st.c}">${st.n}</span></div>
     </div>`;
   }).join("") + (rows.length>state.shown?`<button class="more" id="moreBtn">더보기 (${(rows.length-state.shown).toLocaleString()}개 남음)</button>`:"");
