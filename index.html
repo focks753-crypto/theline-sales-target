@@ -241,9 +241,19 @@ const APT_STATUSES = [
   {k:"prop", n:"제안서", c:"#a9863f"},
   {k:"won", n:"계약", c:"#3f8f5e"},
   {k:"hold", n:"보류", c:"#b1493c"},
+  {k:"reject", n:"거절", c:"#555555"},
   {k:"operating", n:"타사 운영중", c:"#6f4a4a"},
 ];
 const aptStMap = Object.fromEntries(APT_STATUSES.map(s=>[s.k,s]));
+
+// 커뮤니티 운영현황 (방문해서 확인한 실제 현황 — 낙찰데이터와 별개)
+const OPSTAT = [
+  {k:"none", n:"미확인", c:"#8d8a82"},
+  {k:"unrun", n:"미운영", c:"#3f8f5e"},
+  {k:"self", n:"자치운영", c:"#3f6ea9"},
+  {k:"other", n:"타사위탁운영", c:"#6f4a4a"},
+];
+const opstatMap = Object.fromEntries(OPSTAT.map(s=>[s.k,s]));
 
 const BID_CATS = ["전체","위탁운영","시설구축"];
 const BID_STATUSES = [
@@ -318,7 +328,7 @@ const SORT_OPTS = {
 };
 const ALL_STATUSES = [...APT_STATUSES, ...BID_STATUSES];
 const anyStMap = Object.fromEntries(ALL_STATUSES.map(s=>[s.k,s]));
-const ST_ORDER = ["won","prop","submitted","prep","revisit","visit","call","interest","hold","lost","operating","none"];
+const ST_ORDER = ["won","prop","submitted","prep","revisit","visit","call","interest","hold","lost","reject","operating","none"];
 
 function progressItems(){
   const out=[];
@@ -341,6 +351,7 @@ function filteredApt(){
     if(state.filters.has("apt") && r.o) return false;
     if(state.filters.has("sport") && !r.s) return false;
     if(state.filters.has("hideOp") && (st==="operating" || r.aw)) return false;
+    if(state.filters.has("opUnrun") && (crmApt[r.c]||{}).opstat!=="unrun") return false;
     if(state.filters.has("worked") && st==="none") return false;
     if(state.filters.has("untouched") && st!=="none") return false;
     return true;
@@ -376,6 +387,7 @@ const FCHIPS = {
     {f:"apt", label:"아파트만"},
     {f:"sport", label:"커뮤니티 보유"},
     {f:"hideOp", label:"낙찰건 제외", cls:"red"},
+    {f:"opUnrun", label:"미운영 확인", cls:"gold"},
     {f:"worked", label:"영업 진행중"},
     {f:"untouched", label:"미접촉만"},
   ],
@@ -446,11 +458,13 @@ function renderApt(){
     const isNew = r.yrs<1;
     const facs = (r.s?r.s.split(", "):[]).slice(0,4).map(f=>`<span class="fac">${f}</span>`).join("");
     const stBdg = rec.st&&rec.st!=="none"?`<span class="cbdg st" style="background:${st.c}1e;color:${st.c}">${st.n}</span>`:"";
+    const op = opstatMap[rec.opstat||"none"];
+    const opBdg = rec.opstat&&rec.opstat!=="none"?`<span class="cbdg st" style="background:${op.c}1e;color:${op.c}">${op.n}</span>`:"";
     const awFac = r.aw?`<span class="fac" style="background:var(--redbg);color:var(--red)">운영낙찰 ${(r.aw.date||"").slice(0,7)}</span>`:"";
     const awBdg = r.aw?`<span class="cbdg" style="background:var(--redbg);color:var(--red)">타사 운영중</span>`:"";
     return `<div class="card${r.aw?"":isNew?" new":""}" data-c="${r.c}" style="animation-delay:${Math.min(i,14)*0.03}s">
       <div class="c-main">
-        <div class="cname">${r.n}${r.manual?'<span class="cbdg manual">수동</span>':''}${stBdg}</div>
+        <div class="cname">${r.n}${r.manual?'<span class="cbdg manual">수동</span>':''}${opBdg}${stBdg}</div>
         <div class="csub">${r.cat} · ${r.g}${r.o?" · "+(r.t||"주상복합"):""}</div>
         ${facs||awFac?`<div class="cfac">${awFac}${facs}</div>`:""}
         ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
@@ -645,6 +659,8 @@ function openAptModal(code){
     ${r.manual?`<button class="abtn full" id="editApt" style="margin-top:10px">이 단지 정보 수정 / 삭제</button>`:""}
     <div class="m-sec">영업 상태</div>
     <div class="stbtns">${APT_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
+    <div class="m-sec">커뮤니티 운영현황 (방문 확인)</div>
+    <div class="stbtns">${OPSTAT.map(s=>`<button class="stb${(rec.opstat||"none")===s.k?" on":""}" data-o="${s.k}" style="${(rec.opstat||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
     <div class="m-sec">담당자</div>
     <input class="owner-in" id="ownerIn" placeholder="담당 영업자 이름" value="${(rec.owner||'').replace(/"/g,'&quot;')}">
     <div class="m-sec">메모</div>
@@ -653,7 +669,13 @@ function openAptModal(code){
     <div class="m-sec">커뮤니티 시설${allFacs.length?` (${allFacs.length})`:""}</div>
     <div class="m-fac">${allFacs.length?allFacs.map(f=>`<span class="fac${[...sportSet].some(s=>f.includes(s))?"":" dim"}">${f}</span>`).join(""):'<span class="fac">등록된 시설 정보 없음</span>'}</div>
   `;
-  document.querySelectorAll(".stb").forEach(b=>b.addEventListener("click", ()=>{
+  document.querySelectorAll(".stb[data-o]").forEach(b=>b.addEventListener("click", ()=>{
+    const rec2 = crmApt[curCode]||(crmApt[curCode]={});
+    rec2.opstat = rec2.opstat===b.dataset.o ? "none" : b.dataset.o;
+    if(rec2.st===undefined) rec2.st="none";
+    saveCrmApt(); openAptModal(curCode); render();
+  }));
+  document.querySelectorAll(".stb[data-s]").forEach(b=>b.addEventListener("click", ()=>{
     const rec2 = crmApt[curCode]||(crmApt[curCode]={});
     rec2.st = rec2.st===b.dataset.s ? "none" : b.dataset.s;
     rec2.d = new Date().toISOString().slice(0,10);
