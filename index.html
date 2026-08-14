@@ -433,7 +433,12 @@ function renderApt(){
 
   const list = document.getElementById("list");
   const slice = rows.slice(0, state.shown);
-  if(!slice.length){ list.innerHTML = `<div class="empty">조건에 맞는 단지가 없습니다</div>`; return; }
+  if(!slice.length){
+    const q = state.q.trim();
+    list.innerHTML = `<div class="empty">조건에 맞는 단지가 없습니다${q?`<br><span style="font-size:13px">K-apt에 없는 신축 단지일 수 있어요</span><br><button class="more" style="max-width:320px;margin:18px auto 0" id="addFromSearch">+ "${q}" 직접 추가하기</button>`:""}</div>`;
+    const b=document.getElementById("addFromSearch"); if(b) b.addEventListener("click",()=>openAddModal(null,q));
+    return;
+  }
   list.innerHTML = slice.map((r,i)=>{
     const rec = crmApt[r.c]||{};
     const st = aptStMap[rec.st||"none"];
@@ -748,7 +753,7 @@ function openBidModal(no){
 
 function closeModal(){ ovl.classList.remove("show"); modal.classList.remove("show"); }
 
-function openAddModal(code){
+function openAddModal(code, preset){
   const r = code ? DATA.find(x=>x.c===code) : null;
   const edit = !!r;
   const esc = s => (s||"").replace(/"/g,'&quot;');
@@ -757,7 +762,7 @@ function openAddModal(code){
   document.getElementById("mBody").innerHTML = `
     <div class="m-name">${edit?"단지 정보 수정":"단지 수동 추가"}</div>
     <div class="m-sub">K-apt에 없거나 세대수·준공일이 비어 자동으로 안 잡히는 단지를 직접 등록합니다.</div>
-    <div class="m-field"><label>단지명 *</label><input id="f_n" value="${edit?esc(r.n):''}" placeholder="예: 수원성 중흥S-클래스"></div>
+    <div class="m-field"><label>단지명 *</label><input id="f_n" value="${edit?esc(r.n):esc(preset)}" placeholder="예: 수원성 중흥S-클래스"></div>
     <div class="m-row2">
       <div class="m-field"><label>유형</label><select id="f_o">${opt(["아파트","오피스텔·주상복합"], edit&&r.o?"오피스텔·주상복합":"아파트")}</select></div>
       <div class="m-field"><label>권역</label><select id="f_cat">${opt(regions, edit?r.cat:"경기남부")}</select></div>
