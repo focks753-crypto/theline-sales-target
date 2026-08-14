@@ -36,8 +36,11 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 .hdr-cnt b{color:var(--ink);font-size:18px;font-weight:900;}
 
 /* MODE NAV */
-.mswitch{position:sticky;top:0;z-index:30;display:flex;gap:32px;padding:0 var(--pad);
-  background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 2px 12px rgba(26,25,23,.04);}
+.mswitch{position:sticky;top:0;z-index:30;display:flex;gap:26px;padding:0 var(--pad);
+  background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 2px 12px rgba(26,25,23,.04);
+  overflow-x:auto;scrollbar-width:none;}
+.mswitch::-webkit-scrollbar{display:none;}
+.mbtn{flex-shrink:0;}
 .mbtn{background:none;border:none;padding:16px 2px;font-size:17px;font-weight:700;color:var(--ink3);
   cursor:pointer;font-family:inherit;border-bottom:2.5px solid transparent;margin-bottom:-1px;display:flex;align-items:baseline;gap:8px;letter-spacing:-0.3px;}
 .mbtn.on{color:var(--ink);border-bottom-color:var(--gold);}
@@ -207,6 +210,7 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
     <button class="mbtn" data-m="apt">영업타겟<span class="mc" id="mcApt"></span></button>
     <button class="mbtn" data-m="bid">입찰공고<span class="mc" id="mcBid"></span></button>
     <button class="mbtn" data-m="prog">영업 진행<span class="mc" id="mcProg"></span></button>
+    <button class="mbtn" data-m="plan">방문예정<span class="mc" id="mcPlan"></span></button>
   </div>
   <div class="sbar">
     <input class="sinput" id="q" placeholder="검색" autocomplete="off">
@@ -330,11 +334,13 @@ const ALL_STATUSES = [...APT_STATUSES, ...BID_STATUSES];
 const anyStMap = Object.fromEntries(ALL_STATUSES.map(s=>[s.k,s]));
 const ST_ORDER = ["won","prop","submitted","prep","revisit","visit","call","interest","hold","lost","reject","operating","none"];
 
-function progressItems(){
+function crmItems(kind){
+  // kind: "prog"(진행 = 영업상태 지정된 것 = 다녀온/진행 중) | "plan"(방문예정 = plan 플래그)
+  const inc = rec => kind==="plan" ? rec.plan===true : (rec.st && rec.st!=="none");
   const out=[];
-  DATA.forEach(r=>{const rec=crmApt[r.c]; if(rec && ((rec.st&&rec.st!=="none")||rec.owner||rec.memo))
+  DATA.forEach(r=>{const rec=crmApt[r.c]; if(rec && inc(rec))
     out.push({src:"apt",id:r.c,name:r.n,sub:`${r.cat} · ${r.g}`,rec,st:anyStMap[rec.st||"none"],data:r});});
-  BIDS.forEach(r=>{const rec=crmBid[r.no]; if(rec && ((rec.st&&rec.st!=="none")||rec.owner||rec.memo))
+  BIDS.forEach(r=>{const rec=crmBid[r.no]; if(rec && inc(rec))
     out.push({src:"bid",id:r.no,name:r.name,sub:r.org,rec,st:anyStMap[rec.st||"none"],data:r});});
   return out;
 }
@@ -423,12 +429,14 @@ function render(){
   document.querySelectorAll(".mbtn").forEach(b=>b.classList.toggle("on", b.dataset.m===state.mode));
   document.getElementById("mcApt").textContent = DATA.length.toLocaleString();
   document.getElementById("mcBid").textContent = BIDS.length.toLocaleString();
-  document.getElementById("mcProg").textContent = progressItems().length.toLocaleString();
+  document.getElementById("mcProg").textContent = crmItems("prog").length.toLocaleString();
+  document.getElementById("mcPlan").textContent = crmItems("plan").length.toLocaleString();
   document.getElementById("addBtn").classList.toggle("show", state.mode==="apt");
 
   if(state.mode==="apt") renderApt();
   else if(state.mode==="bid") renderBid();
-  else renderProgress();
+  else if(state.mode==="plan") renderCrm("plan");
+  else renderCrm("prog");
 }
 
 function renderApt(){
@@ -523,20 +531,26 @@ function renderBid(){
   }).join("") + (rows.length>state.shown?`<button class="more" id="moreBtn">더보기 (${(rows.length-state.shown).toLocaleString()}개 남음)</button>`:"");
 }
 
-function renderProgress(){
-  let items = progressItems();
-  const wonCnt = items.filter(x=>["won"].includes(x.rec.st)).length;
+function renderCrm(kind){
+  let items = crmItems(kind);
   document.getElementById("q").placeholder = "단지 · 공고 · 담당자 검색";
-  document.getElementById("rcount").innerHTML = `<b>${items.length.toLocaleString()}</b>건 진행<span class="sub">계약/낙찰 ${wonCnt} · 담당배정 ${items.filter(x=>x.rec.owner).length}</span>`;
+  if(kind==="plan"){
+    document.getElementById("rcount").innerHTML = `<b>${items.length.toLocaleString()}</b>건 방문예정<span class="sub">담당배정 ${items.filter(x=>x.rec.owner).length}</span>`;
+  } else {
+    const wonCnt = items.filter(x=>["won"].includes(x.rec.st)).length;
+    document.getElementById("rcount").innerHTML = `<b>${items.length.toLocaleString()}</b>건 진행<span class="sub">계약/낙찰 ${wonCnt} · 담당배정 ${items.filter(x=>x.rec.owner).length}</span>`;
+  }
   // sort buttons
   document.getElementById("rsort").innerHTML = SORT_OPTS.prog.map(([v,l])=>
     `<button class="sortbtn${state.sort===v?" on":""}" data-s="${v}">${l}</button>`).join("");
 
-  // 담당자 필터 칩 (동적)
+  // 담당자 필터 칩 (동적, 건수 표시)
+  const cnt = o => items.filter(x=>(x.rec.owner||"")===o).length;
   const owners = [...new Set(items.map(x=>x.rec.owner).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ko"));
+  const noneCnt = items.filter(x=>!x.rec.owner).length;
   const chips = document.getElementById("fchips");
-  chips.innerHTML = owners.map(o=>`<div class="fchip${state.filters.has("own:"+o)?" on":""}" data-f="own:${o}">${o}</div>`).join("")
-    + `<div class="fchip${state.filters.has("own:__none")?" on":""}" data-f="own:__none">미배정</div>`;
+  chips.innerHTML = owners.map(o=>`<div class="fchip${state.filters.has("own:"+o)?" on":""}" data-f="own:${o}">${o} <b style="opacity:.65">${cnt(o)}</b></div>`).join("")
+    + (noneCnt?`<div class="fchip${state.filters.has("own:__none")?" on":""}" data-f="own:__none">미배정 <b style="opacity:.65">${noneCnt}</b></div>`:"");
 
   // 소스 탭
   const PROG_CATS=["전체","아파트","입찰공고"];
@@ -565,7 +579,12 @@ function renderProgress(){
 
   const list = document.getElementById("list");
   const slice = rows.slice(0, state.shown);
-  if(!slice.length){ list.innerHTML = `<div class="empty">진행 중인 항목이 없습니다<br><span style="font-size:13px">단지·공고 상세창에서 상태나 담당자를 지정하면 여기 모입니다</span></div>`; return; }
+  if(!slice.length){
+    list.innerHTML = kind==="plan"
+      ? `<div class="empty">방문예정 목록이 비어있습니다<br><span style="font-size:13px">단지·공고 상세창에서 "방문예정 추가"를 누르면 여기 모입니다</span></div>`
+      : `<div class="empty">진행 중인 항목이 없습니다<br><span style="font-size:13px">단지·공고 상세창에서 상태나 담당자를 지정하면 여기 모입니다</span></div>`;
+    return;
+  }
   list.innerHTML = slice.map((x,i)=>{
     const st=x.st, rec=x.rec;
     const srcBdg = x.src==="apt"
@@ -656,6 +675,7 @@ function openAptModal(code){
       ${r.tel?`<a class="abtn pri" href="tel:${r.tel.replace(/[^0-9]/g,"")}">전화 ${r.tel}</a>`:`<div class="abtn" style="opacity:.4">전화번호 없음</div>`}
       <a class="abtn" target="_blank" href="https://map.naver.com/p/search/${mapQ}">네이버 지도</a>
     </div>
+    <button class="abtn full" id="planBtn" style="margin-top:10px;${rec.plan?"background:var(--gold);border-color:var(--gold);color:#fff":""}">${rec.plan?"방문예정 목록에서 빼기":"＋ 방문예정 목록에 추가"}</button>
     ${r.manual?`<button class="abtn full" id="editApt" style="margin-top:10px">이 단지 정보 수정 / 삭제</button>`:""}
     <div class="m-sec">영업 상태</div>
     <div class="stbtns">${APT_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
@@ -683,6 +703,12 @@ function openAptModal(code){
   }));
   const editBtn = document.getElementById("editApt");
   if(editBtn) editBtn.addEventListener("click", ()=>openAddModal(curCode));
+  document.getElementById("planBtn").addEventListener("click", ()=>{
+    const rec2 = crmApt[curCode]||(crmApt[curCode]={});
+    rec2.plan = !rec2.plan;
+    if(rec2.st===undefined) rec2.st="none";
+    saveCrmApt(); openAptModal(curCode); render();
+  });
   document.getElementById("memoIn").addEventListener("input", e=>{
     clearTimeout(memoTimer);
     memoTimer = setTimeout(()=>{
@@ -728,6 +754,7 @@ function openBidModal(no){
     <div class="m-actions">
       ${r.url?`<a class="abtn pri full" target="_blank" href="${r.url}">나라장터에서 공고 보기</a>`:`<div class="abtn full" style="opacity:.4">원문 링크 없음</div>`}
     </div>
+    <button class="abtn full" id="planBtn" style="margin-top:10px;${rec.plan?"background:var(--gold);border-color:var(--gold);color:#fff":""}">${rec.plan?"방문예정 목록에서 빼기":"＋ 방문예정 목록에 추가"}</button>
     <div class="m-sec">진행 상태</div>
     <div class="stbtns">${BID_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
     <div class="m-sec">담당자</div>
@@ -750,6 +777,12 @@ function openBidModal(no){
     rec2.d = new Date().toISOString().slice(0,10);
     saveCrmBid(); openBidModal(curCode); render();
   }));
+  document.getElementById("planBtn").addEventListener("click", ()=>{
+    const rec2 = crmBid[curCode]||(crmBid[curCode]={});
+    rec2.plan = !rec2.plan;
+    if(rec2.st===undefined) rec2.st="none";
+    saveCrmBid(); openBidModal(curCode); render();
+  });
   document.getElementById("memoIn").addEventListener("input", e=>{
     clearTimeout(memoTimer);
     memoTimer = setTimeout(()=>{
