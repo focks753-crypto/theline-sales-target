@@ -281,31 +281,36 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   #list{grid-template-columns:1fr;}
   .hdr-ttl{font-size:24px;}
 }
-/* 앱 설치 / 홈화면 추가 안내 */
-#instBanner{position:fixed;left:0;right:0;bottom:0;z-index:400;background:#141414;color:#fff;
-  display:none;align-items:center;gap:12px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));
-  box-shadow:0 -6px 24px rgba(0,0,0,.35);}
-#instBanner.show{display:flex;}
-#instBanner img{width:44px;height:44px;border-radius:10px;flex-shrink:0;background:#000;}
-#instBanner .it{flex:1;min-width:0;}
-#instBanner .it b{display:block;font-size:14px;font-weight:800;line-height:1.3;}
-#instBanner .it span{font-size:12px;color:#b9b9b9;line-height:1.3;}
-#instBanner .ib{background:var(--gold,#c9a24b);color:#fff;border:none;border-radius:10px;
-  padding:11px 16px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;white-space:nowrap;}
-#instBanner .ix{background:none;border:none;color:#888;font-size:22px;line-height:1;cursor:pointer;padding:2px 4px;}
-#kkGuide{position:fixed;inset:0;z-index:500;background:rgba(6,6,6,.95);color:#fff;display:none;
-  flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;}
-#kkGuide.show{display:flex;}
-#kkGuide img{width:82px;height:82px;border-radius:19px;margin-bottom:22px;background:#000;
-  box-shadow:0 8px 30px rgba(0,0,0,.5);}
-#kkGuide h3{font-size:20px;font-weight:900;margin-bottom:14px;letter-spacing:-0.4px;}
-#kkGuide p{font-size:15px;line-height:1.75;color:#dcdcdc;max-width:330px;}
-#kkGuide p b{color:var(--gold,#e5c877);font-weight:800;}
-#kkGuide .kkb{margin-top:26px;background:var(--gold,#c9a24b);color:#fff;border:none;border-radius:13px;
-  padding:15px 30px;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;}
-#kkGuide .kkx{margin-top:18px;background:none;border:none;color:#9a9a9a;font-size:13px;cursor:pointer;
-  text-decoration:underline;font-family:inherit;}
-#kkGuide .kkhint{position:absolute;bottom:26px;left:0;right:0;font-size:13px;color:#8a8a8a;}
+/* 앱 설치 / 홈화면 추가 단계 안내 (바텀시트) */
+#appSheetBg{position:fixed;inset:0;z-index:490;background:rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;transition:opacity .28s;}
+#appSheetBg.show{opacity:1;pointer-events:auto;}
+#appSheet{position:fixed;left:0;right:0;bottom:0;z-index:500;background:#161616;color:#fff;
+  border-radius:22px 22px 0 0;box-shadow:0 -12px 44px rgba(0,0,0,.55);
+  padding:20px 20px calc(22px + env(safe-area-inset-bottom));
+  transform:translateY(115%);transition:transform .32s cubic-bezier(.4,0,.2,1);
+  max-width:480px;margin:0 auto;}
+#appSheet.show{transform:translateY(0);}
+.as-head{display:flex;align-items:center;gap:13px;margin-bottom:6px;}
+.as-head img{width:52px;height:52px;border-radius:13px;background:#000;flex-shrink:0;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);}
+.as-head>div{flex:1;min-width:0;}
+.as-head b{display:block;font-size:17px;font-weight:900;letter-spacing:-0.3px;line-height:1.25;}
+.as-head span{display:block;font-size:12.5px;color:#a9a9a9;line-height:1.4;margin-top:2px;}
+#asClose{background:none;border:none;color:#777;font-size:26px;line-height:1;cursor:pointer;
+  padding:0 2px;align-self:flex-start;}
+.steps{list-style:none;counter-reset:st;margin:10px 0 0;padding:0;}
+.steps li{counter-increment:st;position:relative;padding:11px 0 11px 42px;font-size:14.5px;
+  line-height:1.5;border-top:1px solid #272727;color:#e8e8e8;}
+.steps li:first-child{border-top:none;}
+.steps li::before{content:counter(st);position:absolute;left:0;top:9px;width:28px;height:28px;
+  border-radius:50%;background:var(--gold,#c9a24b);color:#fff;font-weight:800;font-size:14px;
+  display:flex;align-items:center;justify-content:center;}
+.steps li b{color:var(--gold,#e5c877);font-weight:800;}
+.as-btn{width:100%;margin-top:18px;background:var(--gold,#c9a24b);color:#fff;border:none;border-radius:14px;
+  padding:16px;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;}
+.as-hint{margin-top:14px;font-size:12.5px;color:#8f8f8f;line-height:1.5;text-align:center;}
+.as-hint b{color:#bdbdbd;font-weight:700;}
 </style>
 </head>
 <body>
@@ -343,19 +348,16 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 </div>
 
 <button id="addBtn" class="fab">+ 단지 추가</button>
-<div id="instBanner">
-  <img src="appicon.png" alt="">
-  <div class="it"><b id="ibTitle"></b><span id="ibDesc"></span></div>
-  <button class="ib" id="ibBtn"></button>
-  <button class="ix" id="ibClose" aria-label="닫기">×</button>
-</div>
-<div id="kkGuide">
-  <img src="appicon.png" alt="">
-  <h3 id="kkTitle"></h3>
-  <p id="kkDesc"></p>
-  <button class="kkb" id="kkBtn"></button>
-  <button class="kkx" id="kkSkip">그냥 웹으로 볼게요</button>
-  <div class="kkhint" id="kkHint"></div>
+<div id="appSheetBg"></div>
+<div id="appSheet">
+  <div class="as-head">
+    <img src="appicon.png" alt="">
+    <div><b id="asTitle"></b><span id="asSub"></span></div>
+    <button id="asClose" aria-label="닫기">×</button>
+  </div>
+  <ol class="steps" id="asSteps"></ol>
+  <button class="as-btn" id="asBtn"></button>
+  <div class="as-hint" id="asHint"></div>
 </div>
 <div id="ovl"></div>
 <div id="modal">
@@ -1175,7 +1177,7 @@ document.getElementById("mapFilters").addEventListener("change", e=>{
 document.getElementById("mClose").addEventListener("click", closeModal);
 ovl.addEventListener("click", closeModal);
 
-/* ===== 앱 설치 / 홈화면 추가 안내 ===== */
+/* ===== 앱 설치 / 홈화면 추가 단계 안내 ===== */
 (function(){
   const ua = navigator.userAgent || "";
   const isKakao = /KAKAOTALK/i.test(ua);
@@ -1190,58 +1192,98 @@ ovl.addEventListener("click", closeModal);
 
   if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 
-  // 1) 카카오톡 인앱 브라우저 → 설치/홈추가 불가, 외부 브라우저로 유도
-  if(isKakao){
+  const sheet = $("appSheet"), bg = $("appSheetBg");
+  const closeSheet = () => { sheet.classList.remove("show"); bg.classList.remove("show"); };
+  const openSheet = o => {
     if(dismissed()) return;
-    const g = $("kkGuide");
-    if(isAndroid){
-      $("kkTitle").textContent = "앱으로 설치하려면";
-      $("kkDesc").innerHTML = "카카오톡 안에서는 설치가 안 돼요.<br>아래 버튼을 눌러 <b>크롬(Chrome)</b>에서 열면<br>설치 버튼이 나타납니다.";
-      $("kkBtn").textContent = "크롬으로 열기";
-      $("kkBtn").onclick = () => {
-        const u = location.href.replace(/^https?:\/\//, "");
-        location.href = "intent://" + u + "#Intent;scheme=https;package=com.android.chrome;end;";
-      };
-      $("kkHint").textContent = "크롬이 없으면 기본 인터넷 브라우저로 열어주세요.";
-    } else {
-      $("kkTitle").textContent = "홈 화면에 추가하려면";
-      $("kkDesc").innerHTML = "카카오톡 안에서는 추가가 안 돼요.<br>오른쪽 아래 <b>공유/메뉴 버튼</b>을 눌러<br><b>‘Safari(사파리)로 열기’</b>를 선택해 주세요.";
-      $("kkBtn").style.display = "none";
-      $("kkHint").textContent = "사파리로 열린 뒤 공유 → ‘홈 화면에 추가’";
-    }
-    $("kkSkip").onclick = () => { g.classList.remove("show"); setDismiss(); };
-    g.classList.add("show");
-    return;
-  }
-
-  // 2) 실제 브라우저(사파리/크롬 등)
-  const banner = $("instBanner");
-  const showBanner = (title, desc, btnText, onClick) => {
-    if(dismissed()) return;
-    $("ibTitle").textContent = title;
-    $("ibDesc").textContent = desc;
-    if(btnText){ $("ibBtn").textContent = btnText; $("ibBtn").style.display = ""; $("ibBtn").onclick = onClick; }
-    else $("ibBtn").style.display = "none";
-    banner.classList.add("show");
+    $("asTitle").textContent = o.title;
+    $("asSub").textContent = o.sub || "";
+    $("asSteps").innerHTML = (o.steps || []).map(s => "<li>" + s + "</li>").join("");
+    const b = $("asBtn");
+    if(o.btn){ b.textContent = o.btn; b.style.display = ""; b.onclick = o.onBtn; }
+    else b.style.display = "none";
+    $("asHint").innerHTML = o.hint || "";
+    bg.classList.add("show"); sheet.classList.add("show");
   };
-  $("ibClose").onclick = () => { banner.classList.remove("show"); setDismiss(); };
+  $("asClose").onclick = () => { closeSheet(); setDismiss(); };
+  bg.onclick = () => { closeSheet(); setDismiss(); };
 
-  // 안드로이드(갤럭시) 크롬/삼성인터넷: 실제 설치 프롬프트
+  // 안드로이드(갤럭시) 실제 설치 가능 → 원터치 설치 시트
   let deferred = null;
   window.addEventListener("beforeinstallprompt", e => {
     e.preventDefault(); deferred = e;
-    showBanner("더라인 영업관리 앱", "홈 화면에 설치하고 앱처럼 사용하세요", "설치", async () => {
-      banner.classList.remove("show");
-      deferred.prompt();
-      try { await deferred.userChoice; } catch(e){}
-      deferred = null;
+    if(!isAndroid) return;
+    openSheet({
+      title: "앱으로 설치하기",
+      sub: "홈 화면에 추가하고 앱처럼 쓰세요",
+      steps: [
+        "아래 <b>[설치]</b> 버튼을 누르세요",
+        "안내 창에서 <b>‘설치’</b>를 한 번 더 누르면 끝!"
+      ],
+      btn: "설치",
+      onBtn: async () => { closeSheet(); deferred.prompt(); try { await deferred.userChoice; } catch(e){} deferred = null; }
     });
   });
-  window.addEventListener("appinstalled", () => { banner.classList.remove("show"); });
+  window.addEventListener("appinstalled", closeSheet);
 
-  // 아이폰 사파리: 설치 API가 없어 안내만
+  // 1) 카카오톡 인앱 브라우저 → 설치/홈추가 불가, 외부 브라우저로 유도
+  if(isKakao){
+    if(isAndroid){
+      openSheet({
+        title: "앱으로 설치하기",
+        sub: "카톡 안에서는 바로 안 돼요 · 크롬으로 열면 됩니다",
+        steps: [
+          "아래 <b>[크롬으로 열기]</b>를 누르세요",
+          "크롬 화면 아래에 뜨는 <b>‘설치’</b> 안내를 누르세요",
+          "<b>‘설치’</b>를 한 번 더 누르면 끝!"
+        ],
+        btn: "크롬으로 열기",
+        onBtn: () => { const u = location.href.replace(/^https?:\/\//, ""); location.href = "intent://" + u + "#Intent;scheme=https;package=com.android.chrome;end;"; },
+        hint: "크롬이 없으면 <b>오른쪽 위 ⋮ → ‘다른 브라우저로 열기’</b>"
+      });
+    } else if(isIOS){
+      openSheet({
+        title: "홈 화면에 앱으로 담기",
+        sub: "카톡 안에서는 바로 안 돼요 · 사파리로 먼저 열어주세요",
+        steps: [
+          "화면 <b>오른쪽 아래 공유 버튼</b>(⬆️ 상자에 화살표)을 누르세요",
+          "<b>‘Safari로 열기’</b>를 누르세요",
+          "사파리로 열리면 이 안내가 다시 떠요 — 그대로 따라하면 끝!"
+        ],
+        hint: "메뉴가 <b>오른쪽 위 ⋯</b>에 있을 수도 있어요"
+      });
+    }
+    return;
+  }
+
+  // 2) 아이폰 사파리: 설치 API 없음 → 3단계 홈화면 추가 안내
   if(isIOS){
-    showBanner("홈 화면에 추가", "공유 버튼 → ‘홈 화면에 추가’를 누르세요", null);
+    openSheet({
+      title: "홈 화면에 추가 (3단계)",
+      sub: "로고 아이콘으로 앱처럼 바로 열 수 있어요",
+      steps: [
+        "화면 <b>아래 공유 버튼</b>(⬆️ 상자에 화살표)을 누르세요",
+        "메뉴를 조금 내려 <b>‘홈 화면에 추가’</b>를 누르세요",
+        "오른쪽 위 <b>‘추가’</b>를 누르면 끝!"
+      ]
+    });
+    return;
+  }
+
+  // 3) 안드로이드 크롬인데 설치 프롬프트가 바로 안 뜰 때 폴백 안내
+  if(isAndroid){
+    setTimeout(() => {
+      if(deferred || dismissed() || sheet.classList.contains("show")) return;
+      openSheet({
+        title: "앱으로 설치하기",
+        sub: "홈 화면에 추가하고 앱처럼 쓰세요",
+        steps: [
+          "화면 <b>오른쪽 위 ⋮ (점 3개)</b>를 누르세요",
+          "<b>‘앱 설치’</b> 또는 <b>‘홈 화면에 추가’</b>를 누르세요",
+          "<b>‘설치’</b>를 누르면 끝!"
+        ]
+      });
+    }, 2500);
   }
 })();
 
