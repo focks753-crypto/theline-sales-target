@@ -237,6 +237,7 @@ const APT_STATUSES = [
   {k:"none", n:"미접촉", c:"#8d8a82"},
   {k:"call", n:"컨택중", c:"#3f6ea9"},
   {k:"visit", n:"방문완료", c:"#b5793a"},
+  {k:"revisit", n:"재방문필요", c:"#3f8f8f"},
   {k:"prop", n:"제안서", c:"#a9863f"},
   {k:"won", n:"계약", c:"#3f8f5e"},
   {k:"hold", n:"보류", c:"#b1493c"},
@@ -317,7 +318,7 @@ const SORT_OPTS = {
 };
 const ALL_STATUSES = [...APT_STATUSES, ...BID_STATUSES];
 const anyStMap = Object.fromEntries(ALL_STATUSES.map(s=>[s.k,s]));
-const ST_ORDER = ["won","prop","submitted","prep","visit","call","interest","hold","lost","operating","none"];
+const ST_ORDER = ["won","prop","submitted","prep","revisit","visit","call","interest","hold","lost","operating","none"];
 
 function progressItems(){
   const out=[];
