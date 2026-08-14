@@ -85,15 +85,22 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 .vtoggle button{border:none;background:var(--bg);color:var(--ink3);font-size:13.5px;font-weight:700;padding:9px 16px;cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
 .vtoggle button.on{background:var(--ink);color:#fff;}
 
-/* ── 전면 지도 화면 ── */
-#mapScreen{display:none;position:fixed;inset:0;z-index:200;background:var(--soft);}
-#mapScreen.show{display:block;}
+/* ── 지도 (헤더 아래 인라인) ── */
+.hdr-x{display:none;position:absolute;top:calc(20px + env(safe-area-inset-top));right:var(--pad);
+  width:40px;height:40px;border-radius:50%;border:1px solid var(--line2);background:var(--bg);
+  color:var(--ink2);font-size:17px;cursor:pointer;align-items:center;justify-content:center;font-family:inherit;}
+.hdr-x:hover{background:var(--soft);}
+#app.mapmode{display:flex;flex-direction:column;height:100dvh;overflow:hidden;}
+#app.mapmode .hdr{position:relative;}
+#app.mapmode .hdr-x{display:flex;}
+#app.mapmode .sbar,#app.mapmode .fchips,#app.mapmode .tabs,#app.mapmode .rbar,#app.mapmode #list{display:none;}
+#app.mapmode .mswitch{flex-shrink:0;}
+#mapScreen{display:none;position:relative;flex:1;min-height:0;background:var(--soft);}
+#app.mapmode #mapScreen{display:block;}
 #kmapEl{position:absolute;inset:0;width:100%;height:100%;}
-#mapBar{position:absolute;top:0;left:0;right:0;z-index:210;display:flex;align-items:center;gap:9px;
-  padding:calc(12px + env(safe-area-inset-top)) 16px 12px;}
-#mapBar>*{flex-shrink:0;}
-.mbar-btn{background:var(--ink);color:#fff;border:none;border-radius:22px;font-size:14px;font-weight:700;
-  padding:10px 18px;cursor:pointer;font-family:inherit;box-shadow:0 3px 14px rgba(0,0,0,.25);}
+#mapBar{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:9px;
+  padding:12px 14px;pointer-events:none;}
+#mapBar>*{flex-shrink:0;pointer-events:auto;}
 .mbar-scroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:2px 0;touch-action:pan-x;overscroll-behavior-x:contain;}
 .mbar-scroll::-webkit-scrollbar{display:none;}
 .mbar-count{background:var(--bg);border:1px solid var(--line2);border-radius:22px;font-size:13px;font-weight:800;
@@ -112,13 +119,14 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   color:var(--ink2);padding:11px 13px;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .mf-opt:hover{background:var(--soft);}
 .mf-opt.sel{color:var(--gold2);font-weight:800;background:var(--goldbg);}
-/* 마커 라벨 (가까이 볼 때) */
-.mk-label{transform:translate(-50%,-115%);background:var(--bg);border:1.5px solid var(--ink);border-radius:16px;
-  padding:5px 11px;font-size:12.5px;font-weight:800;color:var(--ink);white-space:nowrap;
-  box-shadow:0 4px 12px rgba(0,0,0,.25);cursor:pointer;letter-spacing:-0.3px;}
-.mk-label b{color:var(--ink3);font-weight:600;margin-left:6px;font-size:11.5px;}
-.mk-label.new{border-color:var(--gold);color:var(--gold2);}
-.mk-label.aw{border-color:var(--red);color:var(--red);}
+/* 마커 라벨 */
+.mk-label{transform:translate(-50%,-118%);background:var(--bg);border:1.5px solid var(--ink);border-radius:12px;
+  padding:6px 12px;text-align:center;white-space:nowrap;box-shadow:0 5px 14px rgba(0,0,0,.28);
+  cursor:pointer;letter-spacing:-0.3px;}
+.mk-label .mkn{font-size:12.5px;font-weight:800;color:var(--ink);line-height:1.2;}
+.mk-label .mks{font-size:11px;font-weight:600;color:var(--ink3);margin-top:1px;}
+.mk-label.new{border-color:var(--gold);} .mk-label.new .mkn{color:var(--gold2);}
+.mk-label.aw{border-color:var(--red);} .mk-label.aw .mkn{color:var(--red);}
 .mk-label::after{content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);
   border:6px solid transparent;border-top-color:var(--ink);}
 .mk-label.new::after{border-top-color:var(--gold);}
@@ -261,6 +269,7 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 <div id="app">
   <div class="hdr">
     <div class="hdr-ttl"><small>THE LINE SPORTS</small>영업 관리</div>
+    <button id="mapExit" class="hdr-x" aria-label="목록으로">✕</button>
   </div>
   <div class="mswitch" id="mswitch">
     <button class="mbtn" data-m="apt">영업타겟<span class="mc" id="mcApt"></span></button>
@@ -281,14 +290,12 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
     </div>
   </div>
   <div id="list"></div>
-</div>
-
-<div id="mapScreen">
-  <div id="kmapEl"></div>
-  <div id="mapBar">
-    <button id="mapClose" class="mbar-btn">목록 보기</button>
-    <div class="mbar-scroll" id="mapFilters"></div>
-    <div class="mbar-count" id="mapCount"></div>
+  <div id="mapScreen">
+    <div id="kmapEl"></div>
+    <div id="mapBar">
+      <div class="mbar-scroll" id="mapFilters"></div>
+      <div class="mbar-count" id="mapCount"></div>
+    </div>
   </div>
 </div>
 
@@ -438,16 +445,16 @@ function setMapData(fit){
 function refreshMapView(){
   if(!kmapReady) return;
   mapOverlays.forEach(o=>o.setMap(null)); mapOverlays=[];
-  if(kmap.getLevel() <= 4){ // 가까이 = 라벨 모드
+  if(kmap.getLevel() <= 6){ // 어느정도만 확대해도 라벨 표시
     kcluster.clear();
     const b = kmap.getBounds();
-    mapMarkers.filter(m=>b.contain(m.getPosition())).slice(0,160).forEach(m=>{
+    mapMarkers.filter(m=>b.contain(m.getPosition())).slice(0,260).forEach(m=>{
       const r = m._row;
       const cls = r.aw?"aw":(r.yrs<1?"new":"");
       const el = document.createElement("div");
       el.className = "mk-label"+(cls?" "+cls:"");
-      el.innerHTML = `${r.n.length>11?r.n.slice(0,11)+"…":r.n}<b>${r.h.toLocaleString()}</b>`;
-      el.addEventListener("click", ()=>openAptModal(r.c, null, true));
+      el.innerHTML = `<div class="mkn">${r.n}</div><div class="mks">${r.h.toLocaleString()}세대 · ${r.o?"오피스텔":"아파트"}</div>`;
+      el.addEventListener("click", (ev)=>{ ev.stopPropagation(); openAptModal(r.c, null, true); });
       const ov = new kakao.maps.CustomOverlay({position:m.getPosition(), content:el, yAnchor:1, clickable:true, zIndex:3});
       ov.setMap(kmap); mapOverlays.push(ov);
     });
@@ -457,9 +464,9 @@ function refreshMapView(){
   }
 }
 
-function openMapScreen(){ document.getElementById("mapScreen").classList.add("show"); buildMapFilters(); setMapData(true); }
+function openMapScreen(){ document.getElementById("app").classList.add("mapmode"); window.scrollTo(0,0); buildMapFilters(); setMapData(true); }
 function closeMapScreen(){
-  document.getElementById("mapScreen").classList.remove("show");
+  document.getElementById("app").classList.remove("mapmode");
   state.aptView="list";
   document.querySelectorAll("#vtoggle button").forEach(x=>x.classList.toggle("on", x.dataset.v==="list"));
 }
@@ -585,7 +592,7 @@ function render(){
   document.getElementById("mcPlan").textContent = crmItems("plan").length.toLocaleString();
   document.getElementById("addBtn").classList.toggle("show", state.mode==="apt");
   if(state.mode!=="apt"){
-    document.getElementById("mapScreen").classList.remove("show");
+    document.getElementById("app").classList.remove("mapmode");
     document.getElementById("list").style.display="";
     document.getElementById("vtoggle").style.display="none";
   }
@@ -775,7 +782,8 @@ document.getElementById("mswitch").addEventListener("click", e=>{
   const b = e.target.closest(".mbtn"); if(!b) return;
   state.mode = b.dataset.m; state.cat = "전체"; state.q="";
   state.sort = state.mode==="apt"?"new":state.mode==="bid"?"dday":"recent";
-  state.filters = new Set(); state.shown=60;
+  state.filters = new Set(); state.shown=60; state.aptView="list"; state.hhMin=0;
+  document.getElementById("app").classList.remove("mapmode");
   document.getElementById("q").value = "";
   render();
 });
@@ -1044,7 +1052,7 @@ document.getElementById("vtoggle").addEventListener("click", e=>{
   document.querySelectorAll("#vtoggle button").forEach(x=>x.classList.toggle("on", x.dataset.v===state.aptView));
   if(state.aptView==="map") openMapScreen(); else closeMapScreen();
 });
-document.getElementById("mapClose").addEventListener("click", closeMapScreen);
+document.getElementById("mapExit").addEventListener("click", closeMapScreen);
 document.getElementById("mapFilters").addEventListener("click", e=>{
   const opt = e.target.closest(".mf-opt");
   if(opt){
