@@ -95,10 +95,10 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 #app.mapmode .hdr-x{display:flex;}
 #app.mapmode .sbar,#app.mapmode .fchips,#app.mapmode .tabs,#app.mapmode .rbar,#app.mapmode #list{display:none;}
 #app.mapmode .mswitch{flex-shrink:0;}
-#mapScreen{display:none;position:relative;flex:1;min-height:0;background:var(--soft);}
+#mapScreen{display:none;position:relative;flex:1;min-height:0;background:var(--soft);isolation:isolate;}
 #app.mapmode #mapScreen{display:block;}
-#kmapEl{position:absolute;inset:0;width:100%;height:100%;}
-#mapBar{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:9px;
+#kmapEl{position:absolute;inset:0;width:100%;height:100%;z-index:1;}
+#mapBar{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:9px;
   padding:12px 14px;pointer-events:none;}
 #mapBar>*{flex-shrink:0;pointer-events:auto;}
 .mbar-scroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:2px 0;touch-action:pan-x;overscroll-behavior-x:contain;}
