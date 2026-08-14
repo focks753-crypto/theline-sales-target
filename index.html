@@ -119,6 +119,21 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   color:var(--ink2);padding:11px 13px;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .mf-opt:hover{background:var(--soft);}
 .mf-opt.sel{color:var(--gold2);font-weight:800;background:var(--goldbg);}
+/* 세대수 레인지 슬라이더 */
+.rng-box{width:230px;padding:10px 12px 6px;}
+.rng-val{text-align:center;font-size:14px;color:var(--ink2);margin-bottom:16px;font-weight:600;}
+.rng-val b{color:var(--gold2);font-weight:800;}
+.rng{position:relative;height:22px;}
+.rng-track{position:absolute;top:9px;left:0;right:0;height:4px;border-radius:4px;background:var(--line2);}
+.rng-fill{position:absolute;top:9px;height:4px;border-radius:4px;background:var(--gold);}
+.rng input[type=range]{position:absolute;top:0;left:0;width:100%;height:22px;margin:0;background:none;
+  pointer-events:none;-webkit-appearance:none;appearance:none;}
+.rng input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;pointer-events:auto;
+  width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--gold);cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);}
+.rng input[type=range]::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:50%;
+  background:#fff;border:2px solid var(--gold);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.25);}
+.rng-ticks{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--ink3,#999);}
 /* 마커 라벨 */
 .mk-label{transform:translate(-50%,-118%);background:var(--bg);border:1.5px solid var(--ink);border-radius:12px;
   padding:6px 12px;text-align:center;white-space:nowrap;box-shadow:0 5px 14px rgba(0,0,0,.28);
@@ -388,27 +403,53 @@ function fmtWon(n){
   return n.toLocaleString()+"원";
 }
 
-let state = {mode:"apt", cat:"전체", q:"", sort:"new", filters:new Set(), shown:60, aptView:"list", hhMin:0};
+const HH_MAX=3000;
+let state = {mode:"apt", cat:"전체", q:"", sort:"new", filters:new Set(), shown:60, aptView:"list", hhMin:0, hhMax:HH_MAX};
 
 // ── 전면 카카오 지도 ──
 let kmap=null, kcluster=null, kmapReady=false, mapMarkers=[], mapOverlays=[], curDocked=false;
-const HH_OPTS=[["전체",0],["500세대+",500],["1000세대+",1000],["1500세대+",1500],["2000세대+",2000]];
 
 function mapRows(){ return filteredApt().filter(r=>Array.isArray(r.xy)); }
 
+function hhLabel(){
+  if(state.hhMin===0 && state.hhMax>=HH_MAX) return "세대수";
+  return `${state.hhMin.toLocaleString()}~${state.hhMax>=HH_MAX?"3000+":state.hhMax.toLocaleString()}`;
+}
 function buildMapFilters(){
   const typeSel = state.filters.has("offi")?"오피스텔·주상복합":state.filters.has("apt")?"아파트":"전체";
-  const hh = HH_OPTS.find(o=>o[1]===(state.hhMin||0))||HH_OPTS[0];
+  const hhOn = state.hhMin>0 || state.hhMax<HH_MAX;
   document.getElementById("mapFilters").innerHTML = `
     <div class="mf" data-mf="region"><button class="mf-btn${state.cat!=="전체"?" on":""}">${state.cat==="전체"?"지역":state.cat}<span class="ar">▾</span></button>
       <div class="mf-pop">${APT_CATS.map(c=>`<button class="mf-opt${state.cat===c?" sel":""}" data-v="${c}">${c}</button>`).join("")}</div></div>
     <div class="mf" data-mf="type"><button class="mf-btn${typeSel!=="전체"?" on":""}">${typeSel==="전체"?"단지유형":typeSel}<span class="ar">▾</span></button>
       <div class="mf-pop">${["전체","아파트","오피스텔·주상복합"].map(v=>`<button class="mf-opt${typeSel===v?" sel":""}" data-v="${v}">${v}</button>`).join("")}</div></div>
-    <div class="mf" data-mf="hh"><button class="mf-btn${state.hhMin?" on":""}">${state.hhMin?hh[0]:"세대수"}<span class="ar">▾</span></button>
-      <div class="mf-pop">${HH_OPTS.map(o=>`<button class="mf-opt${(state.hhMin||0)===o[1]?" sel":""}" data-v="${o[1]}">${o[0]}</button>`).join("")}</div></div>
+    <div class="mf" data-mf="hh"><button class="mf-btn${hhOn?" on":""}">${hhLabel()}<span class="ar">▾</span></button>
+      <div class="mf-pop"><div class="rng-box">
+        <div class="rng-val" id="rngVal"></div>
+        <div class="rng"><div class="rng-track"></div><div class="rng-fill" id="rngFill"></div>
+          <input type="range" id="rngMin" min="0" max="${HH_MAX}" step="100" value="${state.hhMin}">
+          <input type="range" id="rngMax" min="0" max="${HH_MAX}" step="100" value="${state.hhMax}"></div>
+        <div class="rng-ticks"><span>최소</span><span>1000</span><span>2000</span><span>3000+</span></div>
+      </div></div></div>
     <button class="mf-btn${state.filters.has("new1")?" on":""}" data-mtoggle="new1">신축</button>
     <button class="mf-btn${state.filters.has("sport")?" on":""}" data-mtoggle="sport">커뮤니티</button>
     <button class="mf-btn${state.filters.has("hideOp")?" on":""}" data-mtoggle="hideOp">낙찰제외</button>`;
+}
+
+function updateRng(apply){
+  const lo=document.getElementById("rngMin"), hi=document.getElementById("rngMax");
+  if(!lo||!hi) return;
+  let a=+lo.value, b=+hi.value;
+  if(a>b){ if(document.activeElement===lo){ b=a; hi.value=b; } else { a=b; lo.value=a; } }
+  state.hhMin=a; state.hhMax=b;
+  const fill=document.getElementById("rngFill");
+  if(fill){ fill.style.left=(a/HH_MAX*100)+"%"; fill.style.right=(100-b/HH_MAX*100)+"%"; }
+  const val=document.getElementById("rngVal");
+  if(val) val.innerHTML = (a===0&&b>=HH_MAX) ? "전체" : `<b>${a.toLocaleString()}</b> ~ <b>${b>=HH_MAX?"3,000+":b.toLocaleString()}</b> 세대`;
+  const btn=document.querySelector('.mf[data-mf="hh"] .mf-btn');
+  if(btn && btn.firstChild) btn.firstChild.textContent = hhLabel();
+  btn && btn.classList.toggle("on", a>0||b<HH_MAX);
+  if(apply) setMapData(false);
 }
 
 function ensureMap(cb){
@@ -514,6 +555,7 @@ function filteredApt(){
     if(state.filters.has("offi") && !r.o) return false;
     if(state.filters.has("apt") && r.o) return false;
     if(state.hhMin && r.h < state.hhMin) return false;
+    if(state.hhMax && state.hhMax < HH_MAX && r.h > state.hhMax) return false;
     if(state.filters.has("sport") && !r.s) return false;
     if(state.filters.has("hideOp") && (st==="operating" || r.aw)) return false;
     if(state.filters.has("opUnrun") && (crmApt[r.c]||{}).opstat!=="unrun") return false;
@@ -782,7 +824,7 @@ document.getElementById("mswitch").addEventListener("click", e=>{
   const b = e.target.closest(".mbtn"); if(!b) return;
   state.mode = b.dataset.m; state.cat = "전체"; state.q="";
   state.sort = state.mode==="apt"?"new":state.mode==="bid"?"dday":"recent";
-  state.filters = new Set(); state.shown=60; state.aptView="list"; state.hhMin=0;
+  state.filters = new Set(); state.shown=60; state.aptView="list"; state.hhMin=0; state.hhMax=HH_MAX;
   document.getElementById("app").classList.remove("mapmode");
   document.getElementById("q").value = "";
   render();
@@ -1059,7 +1101,6 @@ document.getElementById("mapFilters").addEventListener("click", e=>{
     const mf = opt.closest(".mf").dataset.mf, v = opt.dataset.v;
     if(mf==="region") state.cat = v;
     else if(mf==="type"){ state.filters.delete("offi"); state.filters.delete("apt"); if(v==="아파트") state.filters.add("apt"); else if(v!=="전체") state.filters.add("offi"); }
-    else if(mf==="hh") state.hhMin = parseInt(v)||0;
     document.querySelectorAll(".mf-pop").forEach(p=>p.classList.remove("show"));
     buildMapFilters(); setMapData(false); return;
   }
@@ -1074,12 +1115,20 @@ document.getElementById("mapFilters").addEventListener("click", e=>{
     const pop = drop.nextElementSibling, open = pop.classList.contains("show");
     document.querySelectorAll(".mf-pop").forEach(p=>p.classList.remove("show"));
     if(!open){
-      const rc = drop.getBoundingClientRect();
+      const isHh = drop.closest(".mf").dataset.mf==="hh";
+      const rc = drop.getBoundingClientRect(), w = isHh?258:180;
       pop.style.top = (rc.bottom + 6) + "px";
-      pop.style.left = Math.min(rc.left, window.innerWidth - 180) + "px";
+      pop.style.left = Math.max(8, Math.min(rc.left, window.innerWidth - w)) + "px";
       pop.classList.add("show");
+      if(isHh) updateRng(false);
     }
   }
+});
+document.getElementById("mapFilters").addEventListener("input", e=>{
+  if(e.target.type==="range") updateRng(false);
+});
+document.getElementById("mapFilters").addEventListener("change", e=>{
+  if(e.target.type==="range") updateRng(true);
 });
 document.getElementById("mClose").addEventListener("click", closeModal);
 ovl.addEventListener("click", closeModal);
