@@ -164,6 +164,18 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   font-size:15px;font-family:inherit;padding:13px 15px;outline:none;}
 .owner-in:focus{border-color:var(--gold);}
 .c-owner{flex-shrink:0;font-size:13px;font-weight:700;color:var(--gold2);background:var(--goldbg);padding:5px 11px;border-radius:20px;white-space:nowrap;}
+.fab{position:fixed;right:24px;bottom:24px;z-index:60;background:var(--ink);color:#fff;border:none;
+  border-radius:30px;padding:15px 22px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;
+  box-shadow:0 8px 24px rgba(26,25,23,.28);display:none;align-items:center;gap:7px;transition:transform .12s;}
+.fab.show{display:inline-flex;}
+.fab:active{transform:scale(.94);}
+.m-field{margin-top:15px;}
+.m-field label{display:block;font-size:12px;font-weight:700;color:var(--ink3);margin-bottom:6px;letter-spacing:0.3px;}
+.m-field input,.m-field select{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:11px;
+  color:var(--ink);font-size:15px;font-family:inherit;padding:12px 14px;outline:none;}
+.m-field input:focus,.m-field select:focus{border-color:var(--gold);}
+.m-row2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.cbdg.manual{background:#efe9dc;color:var(--gold2);}
 .memo-hint{font-size:12px;color:var(--ink4);margin-top:7px;text-align:right;}
 
 /* 클릭/누름 마이크로 인터랙션 */
@@ -208,6 +220,7 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   <div id="list"></div>
 </div>
 
+<button id="addBtn" class="fab">+ 단지 추가</button>
 <div id="ovl"></div>
 <div id="modal">
   <div class="m-grab"></div>
@@ -250,11 +263,27 @@ const saveCrmApt = ()=>localStorage.setItem("tl_target_crm", JSON.stringify(crmA
 const saveCrmBid = ()=>localStorage.setItem("tl_bid_crm", JSON.stringify(crmBid));
 
 const today = new Date();
-DATA.forEach(r=>{ r.yrs = (today - new Date(r.u)) / 31557600000; });
 BIDS.forEach(r=>{
   const close = r.closeDt ? new Date(r.closeDt.replace(" ","T")) : null;
   r.dday = close ? Math.ceil((close - today) / 86400000) : null;
 });
+
+// 수동 추가 단지 (localStorage)
+const COMM_KW=["커뮤니티","주민공동시설","피트니스","휘트니스","헬스","GX","지엑스","골프","수영","사우나","스포츠","체육","다목적","필라테스","요가"];
+const commOf = w => [...new Set(COMM_KW.filter(k=>(w||"").includes(k)))].join(", ");
+let manualApt = [];
+try{ manualApt = JSON.parse(localStorage.getItem("tl_manual_apt")||"[]"); }catch(e){}
+const saveManual = ()=>localStorage.setItem("tl_manual_apt", JSON.stringify(manualApt));
+function rebuildManual(){
+  for(let i=DATA.length-1;i>=0;i--) if(DATA[i].manual) DATA.splice(i,1);
+  manualApt.forEach(m=>{
+    const r = Object.assign({}, m, {manual:1, s:commOf(m.w)});
+    r.yrs = m.u ? (today - new Date(m.u)) / 31557600000 : 99;
+    DATA.push(r);
+  });
+}
+DATA.forEach(r=>{ r.yrs = (today - new Date(r.u)) / 31557600000; });
+rebuildManual();
 
 function fmtYrs(y){
   if(y<1) return Math.max(0,Math.round(y*12))+"개월";
@@ -382,6 +411,7 @@ function render(){
   document.getElementById("mcApt").textContent = DATA.length.toLocaleString();
   document.getElementById("mcBid").textContent = BIDS.length.toLocaleString();
   document.getElementById("mcProg").textContent = progressItems().length.toLocaleString();
+  document.getElementById("addBtn").classList.toggle("show", state.mode==="apt");
 
   if(state.mode==="apt") renderApt();
   else if(state.mode==="bid") renderBid();
@@ -414,7 +444,7 @@ function renderApt(){
     const awBdg = r.aw?`<span class="cbdg" style="background:var(--redbg);color:var(--red)">타사 운영중</span>`:"";
     return `<div class="card${r.aw?"":isNew?" new":""}" data-c="${r.c}" style="animation-delay:${Math.min(i,14)*0.03}s">
       <div class="c-main">
-        <div class="cname">${r.n}${stBdg}</div>
+        <div class="cname">${r.n}${r.manual?'<span class="cbdg manual">수동</span>':''}${stBdg}</div>
         <div class="csub">${r.cat} · ${r.g}${r.o?" · "+(r.t||"주상복합"):""}</div>
         ${facs||awFac?`<div class="cfac">${awFac}${facs}</div>`:""}
         ${rec.memo?`<div class="cmemo">${rec.memo}</div>`:""}
@@ -598,14 +628,15 @@ function openAptModal(code){
       ${r.aw.url?`<a class="abtn" style="margin-top:11px" target="_blank" href="${r.aw.url}">K-apt에서 낙찰공고 보기</a>`:""}
     </div>`:""}
     <div class="m-stats">
-      <div class="m-stat"><div class="v">${r.u}</div><div class="k">준공일 (${fmtYrs(r.yrs)})</div></div>
-      <div class="m-stat"><div class="v">${r.h.toLocaleString()}</div><div class="k">세대수</div></div>
+      <div class="m-stat"><div class="v">${r.u||"-"}</div><div class="k">준공일${r.u?` (${fmtYrs(r.yrs)})`:""}</div></div>
+      <div class="m-stat"><div class="v">${r.h?r.h.toLocaleString():"-"}</div><div class="k">세대수</div></div>
       <div class="m-stat"><div class="v">${r.t||"아파트"}</div><div class="k">구분</div></div>
     </div>
     <div class="m-actions">
       ${r.tel?`<a class="abtn pri" href="tel:${r.tel.replace(/[^0-9]/g,"")}">전화 ${r.tel}</a>`:`<div class="abtn" style="opacity:.4">전화번호 없음</div>`}
       <a class="abtn" target="_blank" href="https://map.naver.com/p/search/${mapQ}">네이버 지도</a>
     </div>
+    ${r.manual?`<button class="abtn full" id="editApt" style="margin-top:10px">이 단지 정보 수정 / 삭제</button>`:""}
     <div class="m-sec">영업 상태</div>
     <div class="stbtns">${APT_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
     <div class="m-sec">담당자</div>
@@ -622,6 +653,8 @@ function openAptModal(code){
     rec2.d = new Date().toISOString().slice(0,10);
     saveCrmApt(); openAptModal(curCode); render();
   }));
+  const editBtn = document.getElementById("editApt");
+  if(editBtn) editBtn.addEventListener("click", ()=>openAddModal(curCode));
   document.getElementById("memoIn").addEventListener("input", e=>{
     clearTimeout(memoTimer);
     memoTimer = setTimeout(()=>{
@@ -712,7 +745,72 @@ function openBidModal(no){
   });
   ovl.classList.add("show"); modal.classList.add("show");
 }
-ovl.addEventListener("click", ()=>{ovl.classList.remove("show"); modal.classList.remove("show");});
+
+function closeModal(){ ovl.classList.remove("show"); modal.classList.remove("show"); }
+
+function openAddModal(code){
+  const r = code ? DATA.find(x=>x.c===code) : null;
+  const edit = !!r;
+  const esc = s => (s||"").replace(/"/g,'&quot;');
+  const opt = (arr,sel)=>arr.map(v=>`<option${v===sel?" selected":""}>${v}</option>`).join("");
+  const regions = APT_CATS.filter(c=>c!=="전체");
+  document.getElementById("mBody").innerHTML = `
+    <div class="m-name">${edit?"단지 정보 수정":"단지 수동 추가"}</div>
+    <div class="m-sub">K-apt에 없거나 세대수·준공일이 비어 자동으로 안 잡히는 단지를 직접 등록합니다.</div>
+    <div class="m-field"><label>단지명 *</label><input id="f_n" value="${edit?esc(r.n):''}" placeholder="예: 수원성 중흥S-클래스"></div>
+    <div class="m-row2">
+      <div class="m-field"><label>유형</label><select id="f_o">${opt(["아파트","오피스텔·주상복합"], edit&&r.o?"오피스텔·주상복합":"아파트")}</select></div>
+      <div class="m-field"><label>권역</label><select id="f_cat">${opt(regions, edit?r.cat:"경기남부")}</select></div>
+    </div>
+    <div class="m-row2">
+      <div class="m-field"><label>시군구</label><input id="f_g" value="${edit?esc(r.g):''}" placeholder="예: 수원팔달구"></div>
+      <div class="m-field"><label>준공일 (예: 2026-01)</label><input id="f_u" value="${edit?esc(r.u):''}" placeholder="2026-01-01"></div>
+    </div>
+    <div class="m-row2">
+      <div class="m-field"><label>세대수</label><input id="f_h" type="number" value="${edit?(r.h||''):''}" placeholder="1154"></div>
+      <div class="m-field"><label>관리사무소 전화</label><input id="f_tel" value="${edit?esc(r.tel):''}" placeholder="031-000-0000"></div>
+    </div>
+    <div class="m-field"><label>주소</label><input id="f_a" value="${edit?esc(r.a):''}" placeholder="경기도 수원시 팔달구 ..."></div>
+    <div class="m-field"><label>커뮤니티 / 보유 시설</label><input id="f_w" value="${edit?esc(r.w):''}" placeholder="예: 피트니스, GX룸, 골프연습장, 커뮤니티"></div>
+    <div class="m-actions">
+      <button class="abtn pri" id="saveApt">저장</button>
+      <button class="abtn" id="cancelApt">취소</button>
+    </div>
+    ${edit?`<button class="abtn full" id="delApt" style="margin-top:10px;color:var(--red);border-color:var(--red)">이 단지 삭제</button>`:""}
+  `;
+  document.getElementById("saveApt").addEventListener("click", ()=>{
+    const n=document.getElementById("f_n").value.trim();
+    if(!n){ alert("단지명을 입력하세요"); return; }
+    let u=document.getElementById("f_u").value.trim();
+    if(/^\d{4}-\d{1,2}$/.test(u)) u = u.replace(/-(\d)$/,"-0$1")+"-01";
+    const isOffi = document.getElementById("f_o").value!=="아파트";
+    const obj={
+      c: edit ? r.c : "M"+Date.now(),
+      n, t: isOffi?"주상복합":"아파트", o: isOffi?1:0,
+      cat: document.getElementById("f_cat").value,
+      g: document.getElementById("f_g").value.trim(),
+      u, h: parseInt(document.getElementById("f_h").value)||0,
+      tel: document.getElementById("f_tel").value.trim(),
+      a: document.getElementById("f_a").value.trim(),
+      w: document.getElementById("f_w").value.trim(),
+    };
+    const i = manualApt.findIndex(m=>m.c===obj.c);
+    if(i>=0) manualApt[i]=obj; else manualApt.push(obj);
+    saveManual(); rebuildManual();
+    closeModal(); state.mode="apt"; state.q=""; document.getElementById("q").value=""; render();
+  });
+  document.getElementById("cancelApt").addEventListener("click", closeModal);
+  if(edit) document.getElementById("delApt").addEventListener("click", ()=>{
+    if(!confirm("이 수동 추가 단지를 삭제할까요?")) return;
+    manualApt = manualApt.filter(m=>m.c!==r.c);
+    delete crmApt[r.c]; saveCrmApt();
+    saveManual(); rebuildManual(); closeModal(); render();
+  });
+  ovl.classList.add("show"); modal.classList.add("show");
+}
+
+document.getElementById("addBtn").addEventListener("click", ()=>openAddModal());
+ovl.addEventListener("click", closeModal);
 
 render();
 </script>
