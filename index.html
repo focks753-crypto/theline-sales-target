@@ -114,6 +114,8 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   color:var(--ink2);padding:9px 15px;cursor:pointer;font-family:inherit;white-space:nowrap;
   box-shadow:0 2px 10px rgba(0,0,0,.1);display:flex;align-items:center;gap:5px;}
 .mf-btn.on{background:var(--gold);border-color:var(--gold);color:#fff;}
+.mf-btn.plan{border-color:var(--ink);color:var(--ink);font-weight:800;}
+.mf-btn.plan.on{background:var(--ink);border-color:var(--ink);color:#fff;}
 .mf-btn .ar{font-size:10px;opacity:.6;}
 .mf-pop{display:none;position:fixed;background:var(--bg);border:1px solid var(--line2);
   border-radius:13px;box-shadow:0 10px 32px rgba(0,0,0,.2);padding:8px;min-width:150px;z-index:250;max-height:60vh;overflow-y:auto;}
@@ -448,10 +450,14 @@ function fmtWon(n){
 }
 
 const HH_MAX=3000;
-let state = {mode:"apt", cat:"전체", q:"", sort:"new", filters:new Set(), shown:60, aptView:"list", hhMin:0, hhMax:HH_MAX};
+const _yrsAll = DATA.map(r=>+String(r.u).slice(0,4)).filter(y=>y>1990);
+const YR_MIN = _yrsAll.length ? Math.min(..._yrsAll) : 2003;
+const YR_MAX = _yrsAll.length ? Math.max(..._yrsAll) : new Date().getFullYear();
+let state = {mode:"apt", cat:"전체", q:"", sort:"new", filters:new Set(), shown:60, aptView:"list", hhMin:0, hhMax:HH_MAX, yrMin:YR_MIN, yrMax:YR_MAX};
 
 // ── 전면 카카오 지도 ──
 let kmap=null, kcluster=null, kmapReady=false, mapMarkers=[], mapOverlays=[], curDocked=false;
+let curMapMode="", mapDirty=false, idleTimer=null;
 
 function mapRows(){ return filteredApt().filter(r=>Array.isArray(r.xy)); }
 
@@ -459,10 +465,17 @@ function hhLabel(){
   if(state.hhMin===0 && state.hhMax>=HH_MAX) return "세대수";
   return `${state.hhMin.toLocaleString()}~${state.hhMax>=HH_MAX?"3000+":state.hhMax.toLocaleString()}`;
 }
+function yrLabel(){
+  if(state.yrMin<=YR_MIN && state.yrMax>=YR_MAX) return "사용승인";
+  return `${state.yrMin<=YR_MIN?YR_MIN:state.yrMin}~${state.yrMax>=YR_MAX?YR_MAX:state.yrMax}`;
+}
 function buildMapFilters(){
   const typeSel = state.filters.has("offi")?"오피스텔·주상복합":state.filters.has("apt")?"아파트":"전체";
   const hhOn = state.hhMin>0 || state.hhMax<HH_MAX;
+  const yrOn = state.yrMin>YR_MIN || state.yrMax<YR_MAX;
+  const yrMid = Math.round((YR_MIN+YR_MAX)/2);
   document.getElementById("mapFilters").innerHTML = `
+    <button class="mf-btn plan${state.filters.has("planOnly")?" on":""}" data-mtoggle="planOnly">📍 방문예정만</button>
     <div class="mf" data-mf="region"><button class="mf-btn${state.cat!=="전체"?" on":""}">${state.cat==="전체"?"지역":state.cat}<span class="ar">▾</span></button>
       <div class="mf-pop">${APT_CATS.map(c=>`<button class="mf-opt${state.cat===c?" sel":""}" data-v="${c}">${c}</button>`).join("")}</div></div>
     <div class="mf" data-mf="type"><button class="mf-btn${typeSel!=="전체"?" on":""}">${typeSel==="전체"?"단지유형":typeSel}<span class="ar">▾</span></button>
@@ -474,6 +487,14 @@ function buildMapFilters(){
           <input type="range" id="rngMin" min="0" max="${HH_MAX}" step="100" value="${state.hhMin}">
           <input type="range" id="rngMax" min="0" max="${HH_MAX}" step="100" value="${state.hhMax}"></div>
         <div class="rng-ticks"><span>최소</span><span>1000</span><span>2000</span><span>3000+</span></div>
+      </div></div></div>
+    <div class="mf" data-mf="year"><button class="mf-btn${yrOn?" on":""}">${yrLabel()}<span class="ar">▾</span></button>
+      <div class="mf-pop"><div class="rng-box">
+        <div class="rng-val" id="rngYrVal"></div>
+        <div class="rng"><div class="rng-track"></div><div class="rng-fill" id="rngYrFill"></div>
+          <input type="range" id="rngYrMin" min="${YR_MIN}" max="${YR_MAX}" step="1" value="${state.yrMin}">
+          <input type="range" id="rngYrMax" min="${YR_MIN}" max="${YR_MAX}" step="1" value="${state.yrMax}"></div>
+        <div class="rng-ticks"><span>${YR_MIN}</span><span>${yrMid}</span><span>${YR_MAX}</span></div>
       </div></div></div>
     <button class="mf-btn${state.filters.has("new1")?" on":""}" data-mtoggle="new1">신축</button>
     <button class="mf-btn${state.filters.has("sport")?" on":""}" data-mtoggle="sport">커뮤니티</button>
@@ -496,24 +517,48 @@ function updateRng(apply){
   if(apply) setMapData(false);
 }
 
+function updateYr(apply){
+  const lo=document.getElementById("rngYrMin"), hi=document.getElementById("rngYrMax");
+  if(!lo||!hi) return;
+  let a=+lo.value, b=+hi.value;
+  if(a>b){ if(document.activeElement===lo){ b=a; hi.value=b; } else { a=b; lo.value=a; } }
+  state.yrMin=a; state.yrMax=b;
+  const span=YR_MAX-YR_MIN || 1;
+  const fill=document.getElementById("rngYrFill");
+  if(fill){ fill.style.left=((a-YR_MIN)/span*100)+"%"; fill.style.right=(100-(b-YR_MIN)/span*100)+"%"; }
+  const val=document.getElementById("rngYrVal");
+  if(val) val.innerHTML = (a<=YR_MIN&&b>=YR_MAX) ? "전체" : `<b>${a}</b> ~ <b>${b}</b>년 준공`;
+  const btn=document.querySelector('.mf[data-mf="year"] .mf-btn');
+  if(btn && btn.firstChild) btn.firstChild.textContent = yrLabel();
+  btn && btn.classList.toggle("on", a>YR_MIN||b<YR_MAX);
+  if(apply) setMapData(false);
+}
+
+const KMAP_HOME = {lat:36.3, lng:127.8, level:13};  // 대한민국 전체
+const LABEL_LEVEL = 6;                               // 이 레벨 이하로 확대하면 라벨 표시
+
 function ensureMap(cb){
   if(kmapReady){ cb(); return; }
   if(typeof kakao==="undefined" || !kakao.maps){ document.getElementById("kmapEl").innerHTML='<div class="empty" style="padding-top:140px">지도 SDK를 불러오지 못했습니다</div>'; return; }
   kakao.maps.load(()=>{
-    kmap = new kakao.maps.Map(document.getElementById("kmapEl"), {center:new kakao.maps.LatLng(36.5,127.8), level:12});
-    kcluster = new kakao.maps.MarkerClusterer({map:kmap, averageCenter:true, minLevel:6, gridSize:70});
-    kakao.maps.event.addListener(kmap, "idle", refreshMapView);
+    kmap = new kakao.maps.Map(document.getElementById("kmapEl"), {center:new kakao.maps.LatLng(KMAP_HOME.lat,KMAP_HOME.lng), level:KMAP_HOME.level});
+    kcluster = new kakao.maps.MarkerClusterer({map:kmap, averageCenter:true, minLevel:LABEL_LEVEL+1, gridSize:80});
+    kakao.maps.event.addListener(kmap, "idle", scheduleRefresh);
     kakao.maps.event.addListener(kmap, "click", ()=>document.querySelectorAll(".mf-pop").forEach(p=>p.classList.remove("show")));
     kmapReady=true; cb();
   });
 }
 
-function clearMapMarks(){ if(kcluster) kcluster.clear(); mapOverlays.forEach(o=>o.setMap(null)); mapOverlays=[]; }
+// idle이 팬/줌 중 여러 번 튀므로 디바운스 (렉 방지)
+function scheduleRefresh(){ if(idleTimer) clearTimeout(idleTimer); idleTimer=setTimeout(refreshMapView, 130); }
 
 function setMapData(fit){
   ensureMap(()=>{
     kmap.relayout();
-    clearMapMarks();
+    // 필터 변경 → 마커 재생성 (오버레이·클러스터 정리)
+    mapOverlays.forEach(o=>o.setMap(null)); mapOverlays=[];
+    if(kcluster) kcluster.clear();
+    curMapMode="";
     const rows = mapRows();
     document.getElementById("mapCount").innerHTML = `<b>${rows.length.toLocaleString()}</b> 단지`;
     mapMarkers = rows.map(r=>{
@@ -522,20 +567,30 @@ function setMapData(fit){
       kakao.maps.event.addListener(mk, "click", ()=>openAptModal(r.c, null, true));
       return mk;
     });
-    if(fit && rows.length){ const b=new kakao.maps.LatLngBounds(); rows.forEach(r=>b.extend(new kakao.maps.LatLng(r.xy[1], r.xy[0]))); kmap.setBounds(b); }
-    refreshMapView();
+    mapDirty = true;
+    if(fit){
+      if(state.filters.has("planOnly") && rows.length){  // 방문예정만 → 그 단지들로 화면 맞춤
+        const b=new kakao.maps.LatLngBounds(); rows.forEach(r=>b.extend(new kakao.maps.LatLng(r.xy[1], r.xy[0]))); kmap.setBounds(b);
+      } else {  // 기본 = 대한민국 전체
+        kmap.setLevel(KMAP_HOME.level); kmap.setCenter(new kakao.maps.LatLng(KMAP_HOME.lat, KMAP_HOME.lng));
+      }
+    }
+    scheduleRefresh();  // 카메라 이동 idle과 합쳐 한 번만 렌더
   });
 }
 
 function refreshMapView(){
-  if(!kmapReady) return;
+  if(!kmapReady || !kmap) return;
+  const wantLabel = kmap.getLevel() <= LABEL_LEVEL;
+  // 이전 라벨 제거
   mapOverlays.forEach(o=>o.setMap(null)); mapOverlays=[];
-  if(kmap.getLevel() <= 6){ // 어느정도만 확대해도 라벨 표시
-    kcluster.clear();
+  if(wantLabel){
+    if(curMapMode!=="label"){ kcluster.clear(); curMapMode="label"; }  // 클러스터→라벨 전환 시 1회만
     const b = kmap.getBounds();
-    mapMarkers.filter(m=>b.contain(m.getPosition())).slice(0,260).forEach(m=>{
-      const r = m._row;
-      const cls = r.aw?"aw":(r.yrs<1?"new":"");
+    const vis = [];
+    for(let i=0;i<mapMarkers.length && vis.length<140;i++){ if(b.contain(mapMarkers[i].getPosition())) vis.push(mapMarkers[i]); }
+    vis.forEach(m=>{
+      const r = m._row, cls = r.aw?"aw":(r.yrs<1?"new":"");
       const el = document.createElement("div");
       el.className = "mk-label"+(cls?" "+cls:"");
       el.innerHTML = `<div class="mkn">${r.n}</div><div class="mks">${r.h.toLocaleString()}세대 · ${r.o?"오피스텔":"아파트"}</div>`;
@@ -543,9 +598,10 @@ function refreshMapView(){
       const ov = new kakao.maps.CustomOverlay({position:m.getPosition(), content:el, yAnchor:1, clickable:true, zIndex:3});
       ov.setMap(kmap); mapOverlays.push(ov);
     });
-  } else { // 멀리 = 클러스터 모드
-    kcluster.clear();
-    kcluster.addMarkers(mapMarkers);
+    mapDirty = false;
+  } else {
+    // 클러스터 모드: 마커를 매 idle마다 다시 넣지 않고 모드 전환/데이터 변경 시에만 (렉 핵심 원인 제거)
+    if(curMapMode!=="cluster" || mapDirty){ kcluster.clear(); kcluster.addMarkers(mapMarkers); curMapMode="cluster"; mapDirty=false; }
   }
 }
 
@@ -600,6 +656,8 @@ function filteredApt(){
     if(state.filters.has("apt") && r.o) return false;
     if(state.hhMin && r.h < state.hhMin) return false;
     if(state.hhMax && state.hhMax < HH_MAX && r.h > state.hhMax) return false;
+    if(state.yrMin>YR_MIN || state.yrMax<YR_MAX){ const yr=+String(r.u).slice(0,4); if(yr<state.yrMin || yr>state.yrMax) return false; }
+    if(state.filters.has("planOnly") && (crmApt[r.c]||{}).plan!==true) return false;
     if(state.filters.has("sport") && !r.s) return false;
     if(state.filters.has("hideOp") && (st==="operating" || r.aw)) return false;
     if(state.filters.has("opUnrun") && (crmApt[r.c]||{}).opstat!=="unrun") return false;
@@ -868,7 +926,7 @@ document.getElementById("mswitch").addEventListener("click", e=>{
   const b = e.target.closest(".mbtn"); if(!b) return;
   state.mode = b.dataset.m; state.cat = "전체"; state.q="";
   state.sort = state.mode==="apt"?"new":state.mode==="bid"?"dday":"recent";
-  state.filters = new Set(); state.shown=60; state.aptView="list"; state.hhMin=0; state.hhMax=HH_MAX;
+  state.filters = new Set(); state.shown=60; state.aptView="list"; state.hhMin=0; state.hhMax=HH_MAX; state.yrMin=YR_MIN; state.yrMax=YR_MAX;
   document.getElementById("app").classList.remove("mapmode");
   document.getElementById("q").value = "";
   render();
@@ -1152,27 +1210,32 @@ document.getElementById("mapFilters").addEventListener("click", e=>{
   if(tog){
     const f = tog.dataset.mtoggle;
     if(state.filters.has(f)) state.filters.delete(f); else state.filters.add(f);
-    buildMapFilters(); setMapData(false); return;
+    buildMapFilters();
+    setMapData(f==="planOnly" && state.filters.has("planOnly")); // 방문예정만 켜면 해당 단지들로 화면 맞춤
+    return;
   }
   const drop = e.target.closest(".mf > .mf-btn");
   if(drop){
     const pop = drop.nextElementSibling, open = pop.classList.contains("show");
     document.querySelectorAll(".mf-pop").forEach(p=>p.classList.remove("show"));
     if(!open){
-      const isHh = drop.closest(".mf").dataset.mf==="hh";
-      const rc = drop.getBoundingClientRect(), w = isHh?258:180;
+      const mf = drop.closest(".mf").dataset.mf, isSlider = mf==="hh"||mf==="year";
+      const rc = drop.getBoundingClientRect(), w = isSlider?258:180;
       pop.style.top = (rc.bottom + 6) + "px";
       pop.style.left = Math.max(8, Math.min(rc.left, window.innerWidth - w)) + "px";
       pop.classList.add("show");
-      if(isHh) updateRng(false);
+      if(mf==="hh") updateRng(false);
+      else if(mf==="year") updateYr(false);
     }
   }
 });
 document.getElementById("mapFilters").addEventListener("input", e=>{
-  if(e.target.type==="range") updateRng(false);
+  if(e.target.type!=="range") return;
+  if(e.target.id.startsWith("rngYr")) updateYr(false); else updateRng(false);
 });
 document.getElementById("mapFilters").addEventListener("change", e=>{
-  if(e.target.type==="range") updateRng(true);
+  if(e.target.type!=="range") return;
+  if(e.target.id.startsWith("rngYr")) updateYr(true); else updateRng(true);
 });
 document.getElementById("mClose").addEventListener("click", closeModal);
 ovl.addEventListener("click", closeModal);
