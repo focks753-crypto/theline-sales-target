@@ -321,6 +321,13 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
 #syncDot{width:9px;height:9px;border-radius:50%;background:#cbb26a;align-self:center;flex-shrink:0;
   opacity:.5;transition:background .3s,opacity .3s;}
 #syncDot.on{background:#3f8f5e;opacity:1;box-shadow:0 0 0 3px rgba(63,143,94,.18);}
+.abtn.kapt{background:#1b3a6b;border-color:#1b3a6b;color:#fff;}
+.abtn.kapt:hover{background:#16305a;}
+#toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);z-index:600;
+  background:#141414;color:#fff;padding:14px 20px;border-radius:12px;font-size:13.5px;font-weight:600;
+  line-height:1.5;max-width:min(420px,90vw);text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.4);
+  opacity:0;visibility:hidden;transition:opacity .25s,transform .25s,visibility .25s;pointer-events:none;}
+#toast.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -763,6 +770,15 @@ const EXCLUSIVE = {
   bid: [["worked","untouched"], ["oper","plan"]],
 };
 
+// 토스트 알림 (짧게 떴다 사라짐)
+let _toastT=null;
+function toast(msg){
+  let el=document.getElementById("toast");
+  if(!el){ el=document.createElement("div"); el.id="toast"; document.body.appendChild(el); }
+  el.textContent=msg; el.classList.add("show");
+  clearTimeout(_toastT); _toastT=setTimeout(()=>el.classList.remove("show"), 4200);
+}
+
 // 아파트/주상복합 유형 뱃지 (아파트=파랑, 주상복합·오피스텔=청록으로 확실히 구분)
 function typeBadge(r){
   const off = !!r.o;
@@ -1045,6 +1061,7 @@ function openAptModal(code, _preset, docked){
       ${r.tel?`<a class="abtn pri" href="tel:${r.tel.replace(/[^0-9]/g,"")}">전화 ${r.tel}</a>`:`<div class="abtn" style="opacity:.4">전화번호 없음</div>`}
       <a class="abtn" target="_blank" href="https://map.naver.com/p/search/${mapQ}">네이버 지도</a>
     </div>
+    ${r.manual?"":`<button class="abtn full kapt" id="kaptBtn" data-n="${(r.n||"").replace(/"/g,"&quot;")}" style="margin-top:10px">K-apt 단지정보 보기 ${r.c?`<span style="opacity:.6;font-size:12px">${r.c}</span>`:""}</button>`}
     <button class="abtn full" id="planBtn" style="margin-top:10px;${rec.plan?"background:var(--gold);border-color:var(--gold);color:#fff":""}">${rec.plan?"방문예정 목록에서 빼기":"＋ 방문예정 목록에 추가"}</button>
     ${r.manual?`<button class="abtn full" id="editApt" style="margin-top:10px">이 단지 정보 수정 / 삭제</button>`:""}
     <div class="m-sec">영업 상태</div>
@@ -1059,6 +1076,13 @@ function openAptModal(code, _preset, docked){
     <div class="m-sec">커뮤니티 시설${allFacs.length?` (${allFacs.length})`:""}</div>
     <div class="m-fac">${allFacs.length?allFacs.map(f=>`<span class="fac${[...sportSet].some(s=>f.includes(s))?"":" dim"}">${f}</span>`).join(""):'<span class="fac">등록된 시설 정보 없음</span>'}</div>
   `;
+  const kaptBtn = document.getElementById("kaptBtn");
+  if(kaptBtn) kaptBtn.addEventListener("click", ()=>{
+    const nm = kaptBtn.dataset.n || "";
+    try{ const p=navigator.clipboard&&navigator.clipboard.writeText(nm); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+    window.open("https://www.k-apt.go.kr/", "_blank");
+    toast(`'${nm}' 복사됨 · K-apt에서 [단지정보 ▸ 우리단지 기본정보] 검색창에 붙여넣기(Ctrl+V)`);
+  });
   document.querySelectorAll(".stb[data-o]").forEach(b=>b.addEventListener("click", ()=>{
     const rec2 = crmApt[curCode]||(crmApt[curCode]={});
     rec2.opstat = rec2.opstat===b.dataset.o ? "none" : b.dataset.o;
