@@ -328,6 +328,28 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   line-height:1.5;max-width:min(420px,90vw);text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.4);
   opacity:0;visibility:hidden;transition:opacity .25s,transform .25s,visibility .25s;pointer-events:none;}
 #toast.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);}
+.stb.own-manage{border-style:dashed;color:var(--gold2);font-weight:800;}
+#ownerMgrBg{position:fixed;inset:0;z-index:690;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s;}
+#ownerMgrBg.show{opacity:1;pointer-events:auto;}
+#ownerMgr{position:fixed;left:50%;top:50%;transform:translate(-50%,-48%) scale(.96);z-index:700;
+  width:min(420px,92vw);max-height:80vh;overflow-y:auto;background:var(--bg);border-radius:18px;padding:20px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;}
+#ownerMgr.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+.om-head{display:flex;align-items:center;justify-content:space-between;}
+.om-head b{font-size:18px;font-weight:900;color:var(--ink);}
+#omClose{background:none;border:none;font-size:26px;line-height:1;color:var(--ink3);cursor:pointer;}
+.om-sub{font-size:12.5px;color:var(--ink3);margin-top:4px;}
+.om-add{display:flex;gap:8px;margin:16px 0 14px;}
+.om-add input{flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:11px;padding:12px 14px;
+  font-size:15px;font-family:inherit;color:var(--ink);}
+.om-add input:focus{border-color:var(--gold);outline:none;}
+.om-add button{background:var(--gold);border:none;color:#fff;border-radius:11px;padding:0 20px;font-weight:800;
+  font-size:14px;cursor:pointer;font-family:inherit;}
+.om-item{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-top:1px solid var(--line);}
+.om-item span{font-size:15px;font-weight:600;color:var(--ink);}
+.om-del{background:none;border:1px solid var(--line2);color:var(--ink3);border-radius:8px;padding:6px 12px;
+  font-size:12.5px;cursor:pointer;font-family:inherit;}
+.om-del:hover{border-color:var(--red,#b1493c);color:var(--red,#b1493c);}
 </style>
 </head>
 <body>
@@ -376,6 +398,13 @@ body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fs)
   <ol class="steps" id="asSteps"></ol>
   <button class="as-btn" id="asBtn"></button>
   <div class="as-hint" id="asHint"></div>
+</div>
+<div id="ownerMgrBg"></div>
+<div id="ownerMgr">
+  <div class="om-head"><b>담당자 관리</b><button id="omClose" aria-label="닫기">×</button></div>
+  <div class="om-sub">추가·삭제하면 모든 사용자에게 실시간 공유돼요</div>
+  <div class="om-add"><input id="omInput" placeholder="담당자 이름 (예: 홍길동)" autocomplete="off"><button id="omAdd">추가</button></div>
+  <div class="om-list" id="omList"></div>
 </div>
 <div id="ovl"></div>
 <div id="modal">
@@ -457,6 +486,18 @@ const commOf = w => [...new Set(COMM_KW.filter(k=>(w||"").includes(k)))].join(",
 let manualApt = [];
 try{ manualApt = JSON.parse(localStorage.getItem("tl_manual_apt")||"[]"); }catch(e){}
 const saveManual = ()=>{ localStorage.setItem("tl_manual_apt", JSON.stringify(manualApt)); fbPush("manualApt", manualApt); };
+
+// 담당자 명단 (팀 공유) — 타이핑 대신 눌러서 선택
+let owners = [];
+try{ owners = JSON.parse(localStorage.getItem("tl_owners")||"[]"); }catch(e){}
+const saveOwners = ()=>{ localStorage.setItem("tl_owners", JSON.stringify(owners)); fbPush("owners", owners); };
+const ownerSet = str => new Set((str||"").split(/[&/,]/).map(s=>s.trim()).filter(Boolean));
+const ownerStr = set => [...set].sort((a,b)=>a.localeCompare(b,"ko")).join("&");
+function ownerButtons(rec){
+  const sel = ownerSet(rec.owner);
+  const btns = owners.map(n=>`<button class="stb own-b${sel.has(n)?" on":""}" data-own="${n.replace(/"/g,"&quot;")}"${sel.has(n)?' style="background:var(--gold);border-color:var(--gold);color:#fff"':""}>${n}</button>`).join("");
+  return `<div class="stbtns">${btns||'<span class="memo-hint" style="margin:0">명단이 비어있어요 — 관리에서 추가하세요</span>'}<button class="stb own-manage" id="ownerManage">＋ 관리</button></div>`;
+}
 function rebuildManual(){
   for(let i=DATA.length-1;i>=0;i--) if(DATA[i].manual) DATA.splice(i,1);
   manualApt.forEach(m=>{
@@ -482,19 +523,27 @@ function initFirebase(){
       const seen = new Set(manualApt.map(m=>m.c));
       cm.forEach(m=>{ if(m && !seen.has(m.c)){ manualApt.push(m); seen.add(m.c); } });
     }
+    // 담당자 명단: 클라우드+로컬 합치고 결합이름(김주석/박래찬) 분해 + 중복 제거 (자동 정리)
+    if(cloud.owners){ const co = Array.isArray(cloud.owners)?cloud.owners:Object.values(cloud.owners); co.forEach(o=>{ if(o && !owners.includes(o)) owners.push(o); }); }
+    { const s=new Set(); owners.forEach(o=>ownerSet(o).forEach(n=>s.add(n)));
+      if(!s.size){ [...Object.values(crmApt),...Object.values(crmBid)].forEach(r=>{ if(r&&r.owner) ownerSet(r.owner).forEach(n=>s.add(n)); }); }
+      owners = [...s]; }
     localStorage.setItem("tl_target_crm", JSON.stringify(crmApt));
     localStorage.setItem("tl_bid_crm", JSON.stringify(crmBid));
     localStorage.setItem("tl_manual_apt", JSON.stringify(manualApt));
+    localStorage.setItem("tl_owners", JSON.stringify(owners));
     rebuildManual();
     fbReady = true;
     // 병합 결과를 클라우드에 올려 최초 세팅(기존 영업진행·방문예정 유실 방지)
     fbDb.ref("crmApt").set(crmApt);
     fbDb.ref("crmBid").set(crmBid);
     fbDb.ref("manualApt").set(manualApt);
+    fbDb.ref("owners").set(owners);
     // 이후 다른 사용자의 변경을 실시간 수신
     fbDb.ref("crmApt").on("value", s=>{ crmApt = s.val() || {}; localStorage.setItem("tl_target_crm", JSON.stringify(crmApt)); render(); });
     fbDb.ref("crmBid").on("value", s=>{ crmBid = s.val() || {}; localStorage.setItem("tl_bid_crm", JSON.stringify(crmBid)); render(); });
     fbDb.ref("manualApt").on("value", s=>{ const v = s.val(); manualApt = Array.isArray(v) ? v : (v ? Object.values(v) : []); localStorage.setItem("tl_manual_apt", JSON.stringify(manualApt)); rebuildManual(); render(); });
+    fbDb.ref("owners").on("value", s=>{ const v = s.val(); owners = Array.isArray(v) ? v : (v ? Object.values(v) : []); localStorage.setItem("tl_owners", JSON.stringify(owners)); render(); });
     render();
     const dot = document.getElementById("syncDot"); if(dot){ dot.classList.add("on"); dot.title="실시간 공유 연결됨"; }
   }).catch(e=>{ console.warn("Firebase 연결 실패 — 로컬 저장만 사용:", e); });
@@ -1082,7 +1131,7 @@ function openAptModal(code, _preset, docked){
     <div class="stbtns">${IPDAE.map(s=>`<button class="stb${(rec.ipdae||"none")===s.k?" on":""}" data-i="${s.k}" style="${(rec.ipdae||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
     ${(!rec.ipdae||rec.ipdae==="none")&&r.yrs<1.2?'<div class="memo-hint" style="color:var(--gold2)">※ 신축 단지 — 입대의 구성 전일 가능성이 높아요(시행사·관리소장 컨택 유리)</div>':""}
     <div class="m-sec">담당자</div>
-    <input class="owner-in" id="ownerIn" placeholder="담당 영업자 이름" value="${(rec.owner||'').replace(/"/g,'&quot;')}">
+    ${ownerButtons(rec)}
     <div class="m-sec">메모</div>
     <textarea class="memo-in" id="memoIn" placeholder="통화 내용, 방문 일정 등">${rec.memo||""}</textarea>
     <div class="memo-hint" id="memoHint">자동 저장됩니다</div>
@@ -1134,17 +1183,16 @@ function openAptModal(code, _preset, docked){
       document.getElementById("memoHint").textContent = "저장됨";
     }, 500);
   });
-  document.getElementById("ownerIn").addEventListener("input", e=>{
-    clearTimeout(memoTimer);
-    memoTimer = setTimeout(()=>{
-      const rec2 = crmApt[curCode]||(crmApt[curCode]={});
-      rec2.owner = e.target.value.trim();
-      if(!rec2.owner) delete rec2.owner;
-      if(rec2.st===undefined) rec2.st="none";
-      saveCrmApt(); render();
-      document.getElementById("memoHint").textContent = "저장됨";
-    }, 500);
-  });
+  document.querySelectorAll("#modal .own-b").forEach(b=>b.addEventListener("click", ()=>{
+    const rec2 = crmApt[curCode]||(crmApt[curCode]={});
+    const set = ownerSet(rec2.owner); const n = b.dataset.own;
+    if(set.has(n)) set.delete(n); else set.add(n);
+    const s = ownerStr(set); if(s) rec2.owner = s; else delete rec2.owner;
+    if(rec2.st===undefined) rec2.st="none";
+    saveCrmApt(); openAptModal(curCode, null, curDocked); render();
+  }));
+  const omBtn = document.getElementById("ownerManage");
+  if(omBtn) omBtn.addEventListener("click", ()=>openOwnerManage("apt"));
   modal.classList.toggle("docked", curDocked);
   ovl.classList.toggle("docked", curDocked);
   ovl.classList.add("show"); modal.classList.add("show");
@@ -1176,7 +1224,7 @@ function openBidModal(no){
     <div class="m-sec">진행 상태</div>
     <div class="stbtns">${BID_STATUSES.map(s=>`<button class="stb${(rec.st||"none")===s.k?" on":""}" data-s="${s.k}" style="${(rec.st||"none")===s.k?`background:${s.c};border-color:${s.c}`:""}">${s.n}</button>`).join("")}</div>
     <div class="m-sec">담당자</div>
-    <input class="owner-in" id="ownerIn" placeholder="담당 영업자 이름" value="${(rec.owner||'').replace(/"/g,'&quot;')}">
+    ${ownerButtons(rec)}
     <div class="m-sec">메모</div>
     <textarea class="memo-in" id="memoIn" placeholder="제안 방향, 경쟁사 정보 등">${rec.memo||""}</textarea>
     <div class="memo-hint" id="memoHint">자동 저장됩니다</div>
@@ -1213,17 +1261,16 @@ function openBidModal(no){
       document.getElementById("memoHint").textContent = "저장됨";
     }, 500);
   });
-  document.getElementById("ownerIn").addEventListener("input", e=>{
-    clearTimeout(memoTimer);
-    memoTimer = setTimeout(()=>{
-      const rec2 = crmBid[curCode]||(crmBid[curCode]={});
-      rec2.owner = e.target.value.trim();
-      if(!rec2.owner) delete rec2.owner;
-      if(rec2.st===undefined) rec2.st="none";
-      saveCrmBid(); render();
-      document.getElementById("memoHint").textContent = "저장됨";
-    }, 500);
-  });
+  document.querySelectorAll("#modal .own-b").forEach(b=>b.addEventListener("click", ()=>{
+    const rec2 = crmBid[curCode]||(crmBid[curCode]={});
+    const set = ownerSet(rec2.owner); const n = b.dataset.own;
+    if(set.has(n)) set.delete(n); else set.add(n);
+    const s = ownerStr(set); if(s) rec2.owner = s; else delete rec2.owner;
+    if(rec2.st===undefined) rec2.st="none";
+    saveCrmBid(); openBidModal(curCode); render();
+  }));
+  const omBtn2 = document.getElementById("ownerManage");
+  if(omBtn2) omBtn2.addEventListener("click", ()=>openOwnerManage("bid"));
   modal.classList.toggle("docked", curDocked);
   ovl.classList.toggle("docked", curDocked);
   ovl.classList.add("show"); modal.classList.add("show");
@@ -1342,6 +1389,40 @@ document.getElementById("mapFilters").addEventListener("change", e=>{
 });
 document.getElementById("mClose").addEventListener("click", closeModal);
 ovl.addEventListener("click", closeModal);
+
+/* ===== 담당자 관리 ===== */
+let ownerMgrKind = "apt";
+function openOwnerManage(kind){
+  ownerMgrKind = kind || "apt";
+  renderOwnerList();
+  document.getElementById("ownerMgrBg").classList.add("show");
+  document.getElementById("ownerMgr").classList.add("show");
+  setTimeout(()=>{ const i=document.getElementById("omInput"); if(i) i.focus(); }, 60);
+}
+function closeOwnerManage(){
+  document.getElementById("ownerMgrBg").classList.remove("show");
+  document.getElementById("ownerMgr").classList.remove("show");
+  if(curCode){ if(ownerMgrKind==="bid") openBidModal(curCode); else openAptModal(curCode, null, curDocked); }
+}
+function renderOwnerList(){
+  const box = document.getElementById("omList");
+  box.innerHTML = owners.length
+    ? owners.map((n,i)=>`<div class="om-item"><span>${n}</span><button class="om-del" data-i="${i}">삭제</button></div>`).join("")
+    : '<div class="memo-hint" style="margin:10px 0">아직 담당자가 없어요. 위에서 추가하세요.</div>';
+  box.querySelectorAll(".om-del").forEach(b=>b.addEventListener("click", ()=>{
+    owners.splice(+b.dataset.i, 1); saveOwners(); renderOwnerList(); render();
+  }));
+}
+function addOwner(){
+  const inp = document.getElementById("omInput"); const v = (inp.value||"").trim();
+  if(!v) return;
+  if(owners.includes(v)){ toast("이미 있는 담당자예요"); return; }
+  owners.push(v); saveOwners(); inp.value=""; renderOwnerList(); render(); inp.focus();
+}
+document.getElementById("omAdd").addEventListener("click", addOwner);
+document.getElementById("omInput").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addOwner(); } });
+document.getElementById("omClose").addEventListener("click", closeOwnerManage);
+document.getElementById("ownerMgrBg").addEventListener("click", closeOwnerManage);
 
 /* ===== 앱 설치 / 홈화면 추가 단계 안내 ===== */
 (function(){
